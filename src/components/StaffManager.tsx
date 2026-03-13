@@ -55,6 +55,12 @@ export default function StaffManager({ staff, onUpdate }: Props) {
     }
   }
 
+  function removeAll() {
+    if (confirm(`スタッフ全員（${staff.length}人）を削除しますか？`)) {
+      onUpdate([]);
+    }
+  }
+
   function addStaff() {
     const name = newName.trim();
     if (!name) return;
@@ -70,12 +76,22 @@ export default function StaffManager({ staff, onUpdate }: Props) {
     <div className="p-4 space-y-3">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-lg font-bold text-gray-800">スタッフ管理</h2>
-        <button
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
-          onClick={() => setShowAdd(v => !v)}
-        >
-          ＋ 追加
-        </button>
+        <div className="flex gap-2">
+          {staff.length > 0 && (
+            <button
+              className="border border-red-300 text-red-500 px-3 py-2 rounded-lg text-sm font-medium"
+              onClick={removeAll}
+            >
+              全員削除
+            </button>
+          )}
+          <button
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            onClick={() => setShowAdd(v => !v)}
+          >
+            ＋ 追加
+          </button>
+        </div>
       </div>
 
       {showAdd && (
