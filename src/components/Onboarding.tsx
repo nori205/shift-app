@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { Staff, Position } from '../types';
-import { INITIAL_STAFF } from '../utils/rules';
 
 interface Props {
   onComplete: (staff: Staff[]) => void;
@@ -43,25 +42,10 @@ interface TempStaff {
   category: SimpleCategory;
 }
 
-function defaultTempStaff(): TempStaff[] {
-  return INITIAL_STAFF.map(s => {
-    let cat: SimpleCategory = 'floor_night';
-    switch (s.position) {
-      case 'kitchen_only':       cat = 'kitchen'; break;
-      case 'kitchen_floor_day':  cat = 'floor_both'; break;
-      case 'floor_only_day':     cat = 'floor_day'; break;
-      case 'floor_only_night':   cat = 'floor_night'; break;
-      case 'dishwasher_day':     cat = 'dish_day'; break;
-      case 'dishwasher_night':   cat = 'dish_night'; break;
-      case 'floor_night':        cat = 'floor_night'; break;
-    }
-    return { name: s.name, category: cat };
-  });
-}
 
 export default function Onboarding({ onComplete }: Props) {
   const [step, setStep] = useState<Step>('welcome');
-  const [staffList, setStaffList] = useState<TempStaff[]>(defaultTempStaff);
+  const [staffList, setStaffList] = useState<TempStaff[]>([]);
   const [newName, setNewName] = useState('');
   const [newCat, setNewCat] = useState<SimpleCategory>('floor_night');
 
@@ -92,7 +76,7 @@ export default function Onboarding({ onComplete }: Props) {
   }
 
   function handleSkip() {
-    onComplete(INITIAL_STAFF);
+    onComplete([]);
   }
 
   // ---- STEP: WELCOME ----

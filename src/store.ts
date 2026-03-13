@@ -1,5 +1,4 @@
 import type { Staff, MonthlyShifts, DailyShifts, HolidaySet } from './types';
-import { INITIAL_STAFF } from './utils/rules';
 
 const KEYS = {
   staff: 'shift_staff',
@@ -24,7 +23,7 @@ function save(key: string, value: unknown): void {
 }
 
 export function loadStaff(): Staff[] {
-  return load<Staff[]>(KEYS.staff, INITIAL_STAFF);
+  return load<Staff[]>(KEYS.staff, []);
 }
 
 export function saveStaff(staff: Staff[]): void {
