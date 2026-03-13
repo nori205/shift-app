@@ -7,6 +7,7 @@ interface Props {
 
 type SimpleCategory =
   | 'kitchen'
+  | 'kitchen_floor'
   | 'floor_both'
   | 'floor_day'
   | 'floor_night'
@@ -14,22 +15,24 @@ type SimpleCategory =
   | 'dish_night';
 
 const CATEGORY_LABELS: Record<SimpleCategory, string> = {
-  kitchen:     '🍳 調理（昼・夜）',
-  floor_both:  '🛎️ ホール（昼・夜）',
-  floor_day:   '☀️ ホール（昼のみ）',
-  floor_night: '🌙 ホール（夜のみ）',
-  dish_day:    '🫧 洗い場（昼）',
-  dish_night:  '🫧 洗い場（夜）',
+  kitchen:       '🍳 調理のみ（昼・夜）',
+  kitchen_floor: '🍳🛎️ 調理・ホール両方（昼・夜）',
+  floor_both:    '🛎️ ホール（昼・夜）',
+  floor_day:     '☀️ ホール（昼のみ）',
+  floor_night:   '🌙 ホール（夜のみ）',
+  dish_day:      '🫧 洗い場（昼）',
+  dish_night:    '🫧 洗い場（夜）',
 };
 
 function categoryToPosition(cat: SimpleCategory): Position {
   switch (cat) {
-    case 'kitchen':     return 'kitchen_only';
-    case 'floor_both':  return 'kitchen_floor_day';
-    case 'floor_day':   return 'floor_only_day';
-    case 'floor_night': return 'floor_only_night';
-    case 'dish_day':    return 'dishwasher_day';
-    case 'dish_night':  return 'dishwasher_night';
+    case 'kitchen':       return 'kitchen_only';
+    case 'kitchen_floor': return 'kitchen_floor_both';
+    case 'floor_both':    return 'kitchen_floor_day';
+    case 'floor_day':     return 'floor_only_day';
+    case 'floor_night':   return 'floor_only_night';
+    case 'dish_day':      return 'dishwasher_day';
+    case 'dish_night':    return 'dishwasher_night';
   }
 }
 

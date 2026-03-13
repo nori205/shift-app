@@ -2,6 +2,7 @@ export type Position =
   | 'kitchen_only'
   | 'floor_night'
   | 'kitchen_floor_day'
+  | 'kitchen_floor_both'   // キッチン・ホール両方（昼夜）
   | 'floor_only_night'
   | 'floor_only_day'
   | 'dishwasher_day'
