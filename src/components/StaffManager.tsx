@@ -7,9 +7,43 @@ interface Props {
   onUpdate: (staff: Staff[]) => void;
 }
 
-const POSITIONS = Object.keys(POSITION_LABELS) as Position[];
 const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+const POSITION_GROUPS: { label: string; positions: Position[] }[] = [
+  { label: '🍳 調理のみ',       positions: ['kitchen_day', 'kitchen_night', 'kitchen_both'] },
+  { label: '🍳🛎️ 調理・ホール', positions: ['kitchen_floor_day', 'kitchen_floor_night', 'kitchen_floor_both'] },
+  { label: '🛎️ ホールのみ',     positions: ['floor_day', 'floor_night', 'floor_both'] },
+  { label: '🫧 洗い場',         positions: ['dishwasher_day', 'dishwasher_night'] },
+];
+
+function PositionPicker({ value, onChange }: { value: Position; onChange: (p: Position) => void }) {
+  return (
+    <div className="space-y-2">
+      {POSITION_GROUPS.map(group => (
+        <div key={group.label}>
+          <p className="text-[10px] text-gray-400 font-bold mb-1">{group.label}</p>
+          <div className="grid grid-cols-3 gap-1">
+            {group.positions.map(pos => (
+              <button
+                key={pos}
+                type="button"
+                className={`text-xs py-1.5 px-1 rounded-lg border text-center leading-tight transition-colors ${
+                  value === pos
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-gray-50 text-gray-600 border-gray-200'
+                }`}
+                onClick={() => onChange(pos)}
+              >
+                {POSITION_LABELS[pos].replace(/^[🍳🛎️🫧\s]+/, '')}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function DayCheckboxes({ days, onChange }: { days: number[]; onChange: (days: number[]) => void }) {
   function toggle(d: number) {
@@ -40,7 +74,7 @@ function DayCheckboxes({ days, onChange }: { days: number[]; onChange: (days: nu
 
 export default function StaffManager({ staff, onUpdate }: Props) {
   const [newName, setNewName] = useState('');
-  const [newPos, setNewPos] = useState<Position>('floor_only_day');
+  const [newPos, setNewPos] = useState<Position>('floor_night');
   const [newDays, setNewDays] = useState<number[]>([...ALL_DAYS]);
   const [showAdd, setShowAdd] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -67,7 +101,7 @@ export default function StaffManager({ staff, onUpdate }: Props) {
     if (staff.find(s => s.id === name)) { alert('同じ名前のスタッフがすでにいます'); return; }
     onUpdate([...staff, { id: name, name, position: newPos, availableDays: [...newDays] }]);
     setNewName('');
-    setNewPos('floor_only_day');
+    setNewPos('floor_night');
     setNewDays([...ALL_DAYS]);
     setShowAdd(false);
   }
@@ -106,15 +140,7 @@ export default function StaffManager({ staff, onUpdate }: Props) {
           />
           <div>
             <p className="text-xs text-gray-500 mb-1.5">役割</p>
-            <select
-              value={newPos}
-              onChange={e => setNewPos(e.target.value as Position)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            >
-              {POSITIONS.map(p => (
-                <option key={p} value={p}>{POSITION_LABELS[p]}</option>
-              ))}
-            </select>
+            <PositionPicker value={newPos} onChange={setNewPos} />
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-1.5">出勤できる曜日</p>
@@ -158,15 +184,10 @@ export default function StaffManager({ staff, onUpdate }: Props) {
                 <div className="border-t border-gray-100 px-3 pb-3 pt-2 space-y-3">
                   <div>
                     <p className="text-xs text-gray-500 mb-1.5">役割</p>
-                    <select
+                    <PositionPicker
                       value={s.position}
-                      onChange={e => updateField(s.id, { position: e.target.value as Position })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50"
-                    >
-                      {POSITIONS.map(p => (
-                        <option key={p} value={p}>{POSITION_LABELS[p]}</option>
-                      ))}
-                    </select>
+                      onChange={p => updateField(s.id, { position: p })}
+                    />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1.5">出勤できる曜日</p>

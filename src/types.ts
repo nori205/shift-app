@@ -1,29 +1,27 @@
 export type Position =
-  | 'kitchen_only'
-  | 'floor_night'
-  | 'kitchen_floor_day'
-  | 'kitchen_floor_both'   // キッチン・ホール両方（昼夜）
-  | 'floor_only_night'
-  | 'floor_only_day'
-  | 'dishwasher_day'
-  | 'dishwasher_night';
+  | 'kitchen_day'          // 調理のみ（昼）
+  | 'kitchen_night'        // 調理のみ（夜）
+  | 'kitchen_both'         // 調理のみ（昼・夜）
+  | 'kitchen_floor_day'    // 調理・ホール両方（昼）
+  | 'kitchen_floor_night'  // 調理・ホール両方（夜）
+  | 'kitchen_floor_both'   // 調理・ホール両方（昼・夜）
+  | 'floor_day'            // ホールのみ（昼）
+  | 'floor_night'          // ホールのみ（夜）
+  | 'floor_both'           // ホールのみ（昼・夜）
+  | 'dishwasher_day'       // 洗い場（昼）
+  | 'dishwasher_night';    // 洗い場（夜）
 
 export interface Staff {
   id: string;
   name: string;
   position: Position;
-  // 出勤可能曜日: 0=日,1=月,2=火,3=水,4=木,5=金,6=土 (未設定=全曜日OK)
-  availableDays?: number[];
+  availableDays?: number[]; // 0=日,1=月...6=土 (未設定=全曜日OK)
 }
 
-// 月次グリッドの確定シフト値
 export type ShiftType = '昼' | '夜①' | '夜②' | '夜' | '全' | '休' | '';
 
-// 希望入力の値
-// ○=いつでもOK  昼/夜①/夜②/夜=時間帯指定  ×=出れない  ''=未入力
 export type AvailType = '○' | '昼' | '夜①' | '夜②' | '夜' | '×' | '';
 
-// staffAvailability[staffId][day] = AvailType  (day=1..31)
 export type StaffAvailability = Record<string, Record<number, AvailType>>;
 
 export interface DayShift {

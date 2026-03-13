@@ -1,46 +1,36 @@
 import { useState } from 'react';
 import type { Staff, Position } from '../types';
+import { POSITION_LABELS } from '../utils/rules';
 
 interface Props {
   onComplete: (staff: Staff[]) => void;
 }
 
-type SimpleCategory =
-  | 'kitchen'
-  | 'kitchen_floor'
-  | 'floor_both'
-  | 'floor_day'
-  | 'floor_night'
-  | 'dish_day'
-  | 'dish_night';
-
-const CATEGORY_LABELS: Record<SimpleCategory, string> = {
-  kitchen:       '🍳 調理のみ（昼・夜）',
-  kitchen_floor: '🍳🛎️ 調理・ホール両方（昼・夜）',
-  floor_both:    '🛎️ ホール（昼・夜）',
-  floor_day:     '☀️ ホール（昼のみ）',
-  floor_night:   '🌙 ホール（夜のみ）',
-  dish_day:      '🫧 洗い場（昼）',
-  dish_night:    '🫧 洗い場（夜）',
-};
-
-function categoryToPosition(cat: SimpleCategory): Position {
-  switch (cat) {
-    case 'kitchen':       return 'kitchen_only';
-    case 'kitchen_floor': return 'kitchen_floor_both';
-    case 'floor_both':    return 'kitchen_floor_day';
-    case 'floor_day':     return 'floor_only_day';
-    case 'floor_night':   return 'floor_only_night';
-    case 'dish_day':      return 'dishwasher_day';
-    case 'dish_night':    return 'dishwasher_night';
-  }
-}
+// 役割をグループ表示するための定義
+const POSITION_GROUPS: { label: string; positions: Position[] }[] = [
+  {
+    label: '🍳 調理のみ',
+    positions: ['kitchen_day', 'kitchen_night', 'kitchen_both'],
+  },
+  {
+    label: '🍳🛎️ 調理・ホール両方',
+    positions: ['kitchen_floor_day', 'kitchen_floor_night', 'kitchen_floor_both'],
+  },
+  {
+    label: '🛎️ ホールのみ',
+    positions: ['floor_day', 'floor_night', 'floor_both'],
+  },
+  {
+    label: '🫧 洗い場',
+    positions: ['dishwasher_day', 'dishwasher_night'],
+  },
+];
 
 type Step = 'welcome' | 'staff' | 'confirm';
 
 interface TempStaff {
   name: string;
-  category: SimpleCategory;
+  position: Position;
   availableDays: number[];
 }
 
@@ -74,11 +64,39 @@ function DayCheckboxes({ days, onChange }: { days: number[]; onChange: (d: numbe
   );
 }
 
+function PositionPicker({ value, onChange }: { value: Position; onChange: (p: Position) => void }) {
+  return (
+    <div className="space-y-2">
+      {POSITION_GROUPS.map(group => (
+        <div key={group.label}>
+          <p className="text-[10px] text-gray-400 font-bold mb-1">{group.label}</p>
+          <div className="grid grid-cols-3 gap-1">
+            {group.positions.map(pos => (
+              <button
+                key={pos}
+                type="button"
+                className={`text-xs py-2 px-1 rounded-lg border text-center leading-tight transition-colors ${
+                  value === pos
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-gray-50 text-gray-600 border-gray-200'
+                }`}
+                onClick={() => onChange(pos)}
+              >
+                {POSITION_LABELS[pos].replace(/^[🍳🛎️🫧\s]+/, '')}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Onboarding({ onComplete }: Props) {
   const [step, setStep] = useState<Step>('welcome');
   const [staffList, setStaffList] = useState<TempStaff[]>([]);
   const [newName, setNewName] = useState('');
-  const [newCat, setNewCat] = useState<SimpleCategory>('floor_night');
+  const [newPos, setNewPos] = useState<Position>('floor_night');
   const [newDays, setNewDays] = useState<number[]>([...ALL_DAYS]);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
@@ -86,9 +104,9 @@ export default function Onboarding({ onComplete }: Props) {
     const n = newName.trim();
     if (!n) return;
     if (staffList.find(s => s.name === n)) { alert('同じ名前がすでに入力されています'); return; }
-    setStaffList(prev => [...prev, { name: n, category: newCat, availableDays: [...newDays] }]);
+    setStaffList(prev => [...prev, { name: n, position: newPos, availableDays: [...newDays] }]);
     setNewName('');
-    setNewCat('floor_night');
+    setNewPos('floor_night');
     setNewDays([...ALL_DAYS]);
   }
 
@@ -105,7 +123,7 @@ export default function Onboarding({ onComplete }: Props) {
     const finalStaff: Staff[] = staffList.map(s => ({
       id: s.name,
       name: s.name,
-      position: categoryToPosition(s.category),
+      position: s.position,
       availableDays: s.availableDays,
     }));
     onComplete(finalStaff);
@@ -147,7 +165,6 @@ export default function Onboarding({ onComplete }: Props) {
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-
           {/* 登録済みスタッフ */}
           {staffList.map((s, idx) => {
             const isOpen = expandedIdx === idx;
@@ -159,7 +176,7 @@ export default function Onboarding({ onComplete }: Props) {
                 >
                   <div>
                     <span className="font-bold text-gray-800">{s.name}</span>
-                    <span className="ml-2 text-xs text-gray-400">{CATEGORY_LABELS[s.category]}</span>
+                    <span className="ml-2 text-xs text-gray-400">{POSITION_LABELS[s.position]}</span>
                   </div>
                   <span className="text-gray-400 text-sm">{isOpen ? '▲' : '▼'}</span>
                 </div>
@@ -167,21 +184,7 @@ export default function Onboarding({ onComplete }: Props) {
                   <div className="border-t border-gray-100 px-3 pb-3 pt-2 space-y-3">
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">役割</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {(Object.keys(CATEGORY_LABELS) as SimpleCategory[]).map(cat => (
-                          <button
-                            key={cat}
-                            className={`text-xs py-2 px-2 rounded-lg border text-left leading-tight ${
-                              s.category === cat
-                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                : 'bg-gray-50 text-gray-600 border-gray-200'
-                            }`}
-                            onClick={() => updateStaff(idx, { category: cat })}
-                          >
-                            {CATEGORY_LABELS[cat]}
-                          </button>
-                        ))}
-                      </div>
+                      <PositionPicker value={s.position} onChange={p => updateStaff(idx, { position: p })} />
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">出勤できる曜日</p>
@@ -215,21 +218,7 @@ export default function Onboarding({ onComplete }: Props) {
             />
             <div>
               <p className="text-xs text-gray-500 mb-1.5">役割</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {(Object.keys(CATEGORY_LABELS) as SimpleCategory[]).map(cat => (
-                  <button
-                    key={cat}
-                    className={`text-xs py-2 px-2 rounded-lg border text-left leading-tight ${
-                      newCat === cat
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-gray-600 border-gray-200'
-                    }`}
-                    onClick={() => setNewCat(cat)}
-                  >
-                    {CATEGORY_LABELS[cat]}
-                  </button>
-                ))}
-              </div>
+              <PositionPicker value={newPos} onChange={setNewPos} />
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1.5">出勤できる曜日</p>
@@ -261,13 +250,10 @@ export default function Onboarding({ onComplete }: Props) {
         )}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
           {staffList.map((s, idx) => (
-            <div
-              key={idx}
-              className={`px-4 py-3 ${idx < staffList.length - 1 ? 'border-b border-gray-100' : ''}`}
-            >
+            <div key={idx} className={`px-4 py-3 ${idx < staffList.length - 1 ? 'border-b border-gray-100' : ''}`}>
               <div className="flex items-center justify-between">
                 <span className="font-bold text-gray-800">{s.name}</span>
-                <span className="text-xs text-gray-500">{CATEGORY_LABELS[s.category]}</span>
+                <span className="text-xs text-gray-500">{POSITION_LABELS[s.position]}</span>
               </div>
               <p className="text-xs text-gray-400 mt-0.5">
                 {s.availableDays.map(d => DOW_LABELS[d]).join('・')}
