@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import type { Staff, MonthlyShifts, DailyShifts, HolidaySet, Tab, ShiftType, DayShift } from './types';
-// ShiftType imported for handleCellSet signature
+import type { Staff, MonthlyShifts, DailyShifts, HolidaySet, Tab, ShiftType, DayShift, StaffAvailability } from './types';
 import {
   loadStaff, saveStaff,
   loadMonthlyShifts, saveMonthlyShifts,
   loadDailyShifts, saveDailyShifts,
   loadHolidays, saveHolidays,
   loadOnboardingDone, saveOnboardingDone,
+  loadAvailability, saveAvailability,
 } from './store';
 import MonthlyGrid from './components/MonthlyGrid';
 import DailyView from './components/DailyView';
+import AvailabilityInput from './components/AvailabilityInput';
 import StaffManager from './components/StaffManager';
 import Settings from './components/Settings';
 import Onboarding from './components/Onboarding';
@@ -19,79 +20,59 @@ export default function App() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [tab, setTab] = useState<Tab>('monthly');
+  const [tab, setTab] = useState<Tab>('avail');
 
   const [onboardingDone, setOnboardingDone] = useState<boolean>(loadOnboardingDone);
   const [staff, setStaff] = useState<Staff[]>(loadStaff);
   const [monthlyShifts, setMonthlyShifts] = useState<MonthlyShifts>(loadMonthlyShifts);
   const [dailyShifts, setDailyShifts] = useState<DailyShifts>(loadDailyShifts);
   const [holidays, setHolidays] = useState<HolidaySet>(loadHolidays);
-  const [daysOffRequests, setDaysOffRequests] = useState<Record<string, number[]>>({});
+  const [availability, setAvailability] = useState<StaffAvailability>(loadAvailability);
 
   function handleOnboardingComplete(s: Staff[]) {
-    setStaff(s);
-    saveStaff(s);
+    setStaff(s); saveStaff(s);
     saveOnboardingDone();
     setOnboardingDone(true);
   }
 
-  function updateStaff(s: Staff[]) {
-    setStaff(s);
-    saveStaff(s);
-  }
-
-  function updateMonthly(shifts: MonthlyShifts) {
-    setMonthlyShifts(shifts);
-    saveMonthlyShifts(shifts);
-  }
-
-  function updateDaily(shifts: DailyShifts) {
-    setDailyShifts(shifts);
-    saveDailyShifts(shifts);
-  }
-
-  function updateHolidays(h: HolidaySet) {
-    setHolidays(h);
-    saveHolidays(h);
-  }
+  function updateStaff(s: Staff[]) { setStaff(s); saveStaff(s); }
+  function updateMonthly(s: MonthlyShifts) { setMonthlyShifts(s); saveMonthlyShifts(s); }
+  function updateDaily(s: DailyShifts) { setDailyShifts(s); saveDailyShifts(s); }
+  function updateHolidays(h: HolidaySet) { setHolidays(h); saveHolidays(h); }
+  function updateAvailability(a: StaffAvailability) { setAvailability(a); saveAvailability(a); }
 
   function handleCellSet(staffId: string, day: number, value: ShiftType) {
-    const newShifts: MonthlyShifts = {
-      ...monthlyShifts,
-      [staffId]: { ...(monthlyShifts[staffId] || {}), [day]: value },
-    };
-    updateMonthly(newShifts);
+    updateMonthly({ ...monthlyShifts, [staffId]: { ...(monthlyShifts[staffId] || {}), [day]: value } });
   }
 
   function handleDailyUpdate(dateKey: string, shift: DayShift) {
-    const newShifts = { ...dailyShifts, [dateKey]: shift };
-    updateDaily(newShifts);
+    updateDaily({ ...dailyShifts, [dateKey]: shift });
   }
 
   function handleAutoGenerate() {
     if (!confirm(`${year}年${month}月のシフトを自動生成します。現在のシフトは上書きされます。よろしいですか？`)) return;
-    const result = autoGenerate(year, month, staff, daysOffRequests, holidays);
+    const result = autoGenerate(year, month, staff, availability, holidays);
     updateMonthly({ ...monthlyShifts, ...result.monthly });
     updateDaily({ ...dailyShifts, ...result.daily });
     setTab('monthly');
-    alert('自動生成が完了しました！');
+    alert('自動生成が完了しました！月表タブで確認してください。');
   }
 
   function prevMonth() {
     if (month === 1) { setYear(y => y - 1); setMonth(12); }
     else setMonth(m => m - 1);
   }
-
   function nextMonth() {
     if (month === 12) { setYear(y => y + 1); setMonth(1); }
     else setMonth(m => m + 1);
   }
 
   const tabItems: { id: Tab; label: string; icon: string }[] = [
-    { id: 'monthly', label: '月表', icon: '📅' },
-    { id: 'daily', label: '日別', icon: '📋' },
-    { id: 'staff', label: 'スタッフ', icon: '👤' },
-    { id: 'settings', label: '設定', icon: '⚙️' },
+    { id: 'monthly',  label: '月表',     icon: '📅' },
+    { id: 'avail',    label: '希望入力', icon: '✏️' },
+    { id: 'daily',    label: '日別',     icon: '📋' },
+    { id: 'staff',    label: 'スタッフ', icon: '👤' },
+    { id: 'settings', label: '設定',     icon: '⚙️' },
   ];
 
   if (!onboardingDone) {
@@ -100,7 +81,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-      {/* Header */}
+      {/* ヘッダー */}
       <header className="no-print bg-indigo-700 text-white px-4 py-3 flex items-center justify-between shadow">
         <h1 className="text-lg font-bold">シフト管理</h1>
         <div className="flex items-center gap-2">
@@ -118,32 +99,32 @@ export default function App() {
         </div>
       </header>
 
-      {/* Print header */}
       <div className="hidden print:block text-center font-bold text-xl mb-2">
         {year}年{month}月 シフト表
       </div>
 
-      {/* Content */}
+      {/* コンテンツ */}
       <main className="flex-1 overflow-hidden flex flex-col">
         {tab === 'monthly' && (
           <div className="flex-1 overflow-auto p-2">
             <MonthlyGrid
-              year={year}
-              month={month}
-              staff={staff}
-              shifts={monthlyShifts}
-              holidays={holidays}
+              year={year} month={month} staff={staff}
+              shifts={monthlyShifts} holidays={holidays}
               onCellSet={handleCellSet}
             />
           </div>
         )}
+        {tab === 'avail' && (
+          <AvailabilityInput
+            year={year} month={month} staff={staff}
+            availability={availability} holidays={holidays}
+            onUpdate={updateAvailability}
+          />
+        )}
         {tab === 'daily' && (
           <DailyView
-            year={year}
-            month={month}
-            staff={staff}
-            shifts={dailyShifts}
-            holidays={holidays}
+            year={year} month={month} staff={staff}
+            shifts={dailyShifts} holidays={holidays}
             onUpdate={handleDailyUpdate}
           />
         )}
@@ -155,30 +136,25 @@ export default function App() {
         {tab === 'settings' && (
           <div className="flex-1 overflow-y-auto">
             <Settings
-              holidays={holidays}
-              onHolidaysUpdate={updateHolidays}
-              staff={staff}
-              daysOffRequests={daysOffRequests}
-              onDaysOffUpdate={setDaysOffRequests}
-              year={year}
-              month={month}
+              holidays={holidays} onHolidaysUpdate={updateHolidays}
+              year={year} month={month}
               onAutoGenerate={handleAutoGenerate}
             />
           </div>
         )}
       </main>
 
-      {/* Bottom navigation */}
-      <nav className="no-print bg-white border-t border-gray-200 flex shadow-lg safe-area-inset-bottom">
+      {/* ボトムナビ */}
+      <nav className="no-print bg-white border-t border-gray-200 flex shadow-lg">
         {tabItems.map(item => (
           <button
             key={item.id}
-            className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
+            className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-[10px] transition-colors ${
               tab === item.id ? 'text-indigo-600 font-bold' : 'text-gray-500'
             }`}
             onClick={() => setTab(item.id)}
           >
-            <span className="text-xl">{item.icon}</span>
+            <span className="text-lg">{item.icon}</span>
             <span>{item.label}</span>
           </button>
         ))}

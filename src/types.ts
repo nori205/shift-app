@@ -11,19 +11,24 @@ export interface Staff {
   id: string;
   name: string;
   position: Position;
-  // 出勤可能曜日: 0=日, 1=月, 2=火, 3=水, 4=木, 5=金, 6=土
-  // 未設定の場合は全曜日OK とみなす
+  // 出勤可能曜日: 0=日,1=月,2=火,3=水,4=木,5=金,6=土 (未設定=全曜日OK)
   availableDays?: number[];
 }
 
-// 月次グリッドの各セル値
-// 昼=昼のみ, 夜①=17時のみ, 夜②=18時のみ, 夜=夜①+②, 全=昼+夜, 休=休み, ''=未設定
+// 月次グリッドの確定シフト値
 export type ShiftType = '昼' | '夜①' | '夜②' | '夜' | '全' | '休' | '';
 
+// 希望入力の値
+// ○=いつでもOK  昼/夜①/夜②/夜=時間帯指定  ×=出れない  ''=未入力
+export type AvailType = '○' | '昼' | '夜①' | '夜②' | '夜' | '×' | '';
+
+// staffAvailability[staffId][day] = AvailType  (day=1..31)
+export type StaffAvailability = Record<string, Record<number, AvailType>>;
+
 export interface DayShift {
-  lunch: string[];   // 昼シフトのスタッフID
-  shift17: string[]; // 17:00〜のスタッフID
-  shift18: string[]; // 18:00〜のスタッフID
+  lunch: string[];
+  shift17: string[];
+  shift18: string[];
   notes?: string;
 }
 
@@ -34,4 +39,4 @@ export interface HolidaySet {
   [date: string]: boolean;
 }
 
-export type Tab = 'monthly' | 'daily' | 'staff' | 'settings';
+export type Tab = 'monthly' | 'avail' | 'daily' | 'staff' | 'settings';

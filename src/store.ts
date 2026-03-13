@@ -1,4 +1,4 @@
-import type { Staff, MonthlyShifts, DailyShifts, HolidaySet } from './types';
+import type { Staff, MonthlyShifts, DailyShifts, HolidaySet, StaffAvailability } from './types';
 
 const KEYS = {
   staff: 'shift_staff',
@@ -6,6 +6,7 @@ const KEYS = {
   daily: 'shift_daily',
   holidays: 'shift_holidays',
   onboarding: 'shift_onboarding_done',
+  availability: 'shift_availability',
 };
 
 function load<T>(key: string, fallback: T): T {
@@ -22,42 +23,20 @@ function save(key: string, value: unknown): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function loadStaff(): Staff[] {
-  return load<Staff[]>(KEYS.staff, []);
-}
+export function loadStaff(): Staff[] { return load<Staff[]>(KEYS.staff, []); }
+export function saveStaff(staff: Staff[]): void { save(KEYS.staff, staff); }
 
-export function saveStaff(staff: Staff[]): void {
-  save(KEYS.staff, staff);
-}
+export function loadMonthlyShifts(): MonthlyShifts { return load<MonthlyShifts>(KEYS.monthly, {}); }
+export function saveMonthlyShifts(s: MonthlyShifts): void { save(KEYS.monthly, s); }
 
-export function loadMonthlyShifts(): MonthlyShifts {
-  return load<MonthlyShifts>(KEYS.monthly, {});
-}
+export function loadDailyShifts(): DailyShifts { return load<DailyShifts>(KEYS.daily, {}); }
+export function saveDailyShifts(s: DailyShifts): void { save(KEYS.daily, s); }
 
-export function saveMonthlyShifts(shifts: MonthlyShifts): void {
-  save(KEYS.monthly, shifts);
-}
+export function loadHolidays(): HolidaySet { return load<HolidaySet>(KEYS.holidays, {}); }
+export function saveHolidays(h: HolidaySet): void { save(KEYS.holidays, h); }
 
-export function loadDailyShifts(): DailyShifts {
-  return load<DailyShifts>(KEYS.daily, {});
-}
+export function loadOnboardingDone(): boolean { return load<boolean>(KEYS.onboarding, false); }
+export function saveOnboardingDone(): void { save(KEYS.onboarding, true); }
 
-export function saveDailyShifts(shifts: DailyShifts): void {
-  save(KEYS.daily, shifts);
-}
-
-export function loadHolidays(): HolidaySet {
-  return load<HolidaySet>(KEYS.holidays, {});
-}
-
-export function saveHolidays(holidays: HolidaySet): void {
-  save(KEYS.holidays, holidays);
-}
-
-export function loadOnboardingDone(): boolean {
-  return load<boolean>(KEYS.onboarding, false);
-}
-
-export function saveOnboardingDone(): void {
-  save(KEYS.onboarding, true);
-}
+export function loadAvailability(): StaffAvailability { return load<StaffAvailability>(KEYS.availability, {}); }
+export function saveAvailability(a: StaffAvailability): void { save(KEYS.availability, a); }
