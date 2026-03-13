@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Staff, MonthlyShifts, DailyShifts, HolidaySet, Tab, ShiftType, DayShift } from './types';
+// ShiftType imported for handleCellSet signature
 import {
   loadStaff, saveStaff,
   loadMonthlyShifts, saveMonthlyShifts,
@@ -13,8 +14,6 @@ import StaffManager from './components/StaffManager';
 import Settings from './components/Settings';
 import Onboarding from './components/Onboarding';
 import { autoGenerate } from './components/AutoScheduler';
-
-const SHIFT_CYCLE: ShiftType[] = ['昼', '夜', '休', ''];
 
 export default function App() {
   const now = new Date();
@@ -56,12 +55,10 @@ export default function App() {
     saveHolidays(h);
   }
 
-  function handleCellClick(staffId: string, day: number, current: ShiftType) {
-    const idx = SHIFT_CYCLE.indexOf(current);
-    const next = SHIFT_CYCLE[(idx + 1) % SHIFT_CYCLE.length];
+  function handleCellSet(staffId: string, day: number, value: ShiftType) {
     const newShifts: MonthlyShifts = {
       ...monthlyShifts,
-      [staffId]: { ...(monthlyShifts[staffId] || {}), [day]: next },
+      [staffId]: { ...(monthlyShifts[staffId] || {}), [day]: value },
     };
     updateMonthly(newShifts);
   }
@@ -136,7 +133,7 @@ export default function App() {
               staff={staff}
               shifts={monthlyShifts}
               holidays={holidays}
-              onCellClick={handleCellClick}
+              onCellSet={handleCellSet}
             />
           </div>
         )}

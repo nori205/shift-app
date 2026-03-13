@@ -11,26 +11,26 @@ export interface Staff {
   id: string;
   name: string;
   position: Position;
+  // 出勤可能曜日: 0=日, 1=月, 2=火, 3=水, 4=木, 5=金, 6=土
+  // 未設定の場合は全曜日OK とみなす
+  availableDays?: number[];
 }
 
-export type ShiftType = '昼' | '夜' | '休' | '';
+// 月次グリッドの各セル値
+// 昼=昼のみ, 夜①=17時のみ, 夜②=18時のみ, 夜=夜①+②, 全=昼+夜, 休=休み, ''=未設定
+export type ShiftType = '昼' | '夜①' | '夜②' | '夜' | '全' | '休' | '';
 
 export interface DayShift {
-  // shift17 = 17:00〜 slot, shift18 = 18:00〜 slot
-  lunch: string[];   // staff IDs working lunch
-  shift17: string[]; // staff IDs from 17:00
-  shift18: string[]; // staff IDs from 18:00
-  notes?: string;    // 日別メモ（追加人員など）
+  lunch: string[];   // 昼シフトのスタッフID
+  shift17: string[]; // 17:00〜のスタッフID
+  shift18: string[]; // 18:00〜のスタッフID
+  notes?: string;
 }
 
-// monthlyShifts[staffId][day] = ShiftType (day = 1..31)
 export type MonthlyShifts = Record<string, Record<number, ShiftType>>;
-
-// dailyShifts[dateKey] = DayShift  (dateKey = "YYYY-MM-DD")
 export type DailyShifts = Record<string, DayShift>;
 
 export interface HolidaySet {
-  // key = "YYYY-MM-DD"
   [date: string]: boolean;
 }
 
