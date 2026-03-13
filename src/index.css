@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { font-size: 10px; }
+  @page { size: A4 landscape; margin: 8mm; }
+}
