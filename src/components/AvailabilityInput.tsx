@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Staff, StaffAvailability, AvailType, HolidaySet } from '../types';
 
 interface Props {
@@ -50,6 +50,8 @@ interface Sel { staffId: string; day: number }
 export default function AvailabilityInput({ year, month, staff, availability, holidays, onUpdate }: Props) {
   const [selectedStaff, setSelectedStaff] = useState<string>(staff[0]?.id ?? '');
   const [sel, setSel] = useState<Sel | null>(null);
+
+  useEffect(() => { setSel(null); }, [year, month]);
 
   const days = daysInMonth(year, month);
   const dayArr = Array.from({ length: days }, (_, i) => i + 1);

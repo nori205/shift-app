@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Staff, DailyShifts, DayShift, HolidaySet } from '../types';
 import { canWorkLunch, canWorkNight, canWork18 } from '../utils/rules';
 
@@ -44,6 +44,14 @@ export default function DailyView({ year, month, staff, shifts, holidays, onUpda
     ? today.getDate() : 1;
   const [selectedDay, setSelectedDay] = useState(initDay);
   const [activeSlot, setActiveSlot] = useState<Slot | null>(null);
+
+  useEffect(() => {
+    const t = new Date();
+    const d = t.getFullYear() === year && t.getMonth() + 1 === month ? t.getDate() : 1;
+    setSelectedDay(Math.min(d, daysInMonth(year, month)));
+    setActiveSlot(null);
+  }, [year, month]);
+
 
   const days = daysInMonth(year, month);
   const dayArr = Array.from({ length: days }, (_, i) => i + 1);

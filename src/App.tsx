@@ -82,7 +82,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-gray-100">
       {/* ヘッダー */}
-      <header className="no-print bg-indigo-700 text-white px-4 py-3 flex items-center justify-between shadow">
+      <header className="no-print relative z-40 bg-indigo-700 text-white px-4 py-3 flex items-center justify-between shadow">
         <h1 className="text-lg font-bold">シフト管理</h1>
         <div className="flex items-center gap-2">
           <button className="p-1 hover:bg-indigo-600 rounded" onClick={prevMonth}>◀</button>
