@@ -17,6 +17,7 @@ import Settings from './components/Settings';
 import Onboarding from './components/Onboarding';
 import QRExportModal from './components/QRExportModal';
 import AbsenceListPrint from './components/AbsenceListPrint';
+import MonthlyPrintAppendix from './components/MonthlyPrintAppendix';
 import { autoGenerate } from './components/AutoScheduler';
 
 export default function App() {
@@ -159,6 +160,12 @@ export default function App() {
               year={year} month={month} staff={staff}
               shifts={monthlyShifts} holidays={holidays}
               onCellSet={handleCellSet}
+            />
+            {/* 印刷時のみ表示：出れない人リスト＋QRコード */}
+            <MonthlyPrintAppendix
+              year={year} month={month} staff={staff}
+              monthly={monthlyShifts} daily={dailyShifts}
+              availability={availability} holidays={holidays}
             />
           </div>
         )}

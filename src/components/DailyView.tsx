@@ -51,6 +51,7 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
     const d = t.getFullYear() === year && t.getMonth() + 1 === month ? t.getDate() : 1;
     setSelectedDay(Math.min(d, daysInMonth(year, month)));
     setActiveSlot(null);
+    setShowEmergency(null);
   }, [year, month]);
 
   const days = daysInMonth(year, month);
@@ -58,14 +59,20 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
 
   const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
   const isWE = isWeekendOrHoliday(year, month, selectedDay, holidays);
-
   const currentShift: DayShift = shifts[dateKey] || { lunch: [], shift17: [], shift18: [] };
 
   function toggleStaff(slot: Slot, staffId: string) {
     const arr = [...(currentShift[slot] || [])];
     const idx = arr.indexOf(staffId);
-    if (idx >= 0) arr.splice(idx, 1);
-    else arr.push(staffId);
+    if (idx >= 0) {
+      // 削除：ピッカーは開いたまま
+      arr.splice(idx, 1);
+    } else {
+      // 追加：ピッカーを閉じてチップを見せる
+      arr.push(staffId);
+      setActiveSlot(null);
+      setShowEmergency(null);
+    }
     onUpdate(dateKey, { ...currentShift, [slot]: arr });
   }
 
@@ -73,11 +80,18 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
     return currentShift[slot] || [];
   }
 
-  // スタッフが当日欠席かどうか
   function isAbsent(staffId: string): boolean {
     const avail = availability[staffId]?.[selectedDay] ?? '';
     const shift = monthly[staffId]?.[selectedDay] ?? '';
     return avail === '×' || shift === '休';
+  }
+
+  function absenceReason(staffId: string): string {
+    const avail = availability[staffId]?.[selectedDay] ?? '';
+    const shift = monthly[staffId]?.[selectedDay] ?? '';
+    if (avail === '×') return '×';
+    if (shift === '休') return '休';
+    return '';
   }
 
   const dow = getDow(year, month, selectedDay);
@@ -112,14 +126,14 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
       </div>
 
       {/* 日付ヘッダー */}
-      <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100 flex items-center gap-2">
+      <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100 flex items-center gap-2 flex-wrap">
         <span className="font-bold text-indigo-800">
           {month}月{selectedDay}日（{DOW_LABELS[dow]}）
         </span>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isWE ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
           {isWE ? '土日祝' : '平日'}
         </span>
-        {isWE && <span className="text-xs text-gray-500">※夜①に5人、夜②は不要</span>}
+        {isWE && <span className="text-xs text-gray-500">※夜①5人、夜②不要</span>}
         {!isWE && <span className="text-xs text-gray-500">※夜①1人 / 夜②2人</span>}
       </div>
 
@@ -132,21 +146,17 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
           const notNeeded = isWE && slot === 'shift18';
           const ok = notNeeded || members.length >= req;
 
-          // ポジション対応スタッフのうち、未割当のもの
           const eligibleNotAssigned = staff.filter(s =>
             canWork(slot, s.position) && !members.includes(s.id)
           );
-          // 未割当かつ出勤可能（欠席でない）＝「削られた人」
           const available = eligibleNotAssigned.filter(s => !isAbsent(s.id));
-          // 未割当かつ欠席中
           const absent = eligibleNotAssigned.filter(s => isAbsent(s.id));
-          // ポジション対象外スタッフ（穴埋め候補）
           const outOfPosition = staff.filter(s =>
             !canWork(slot, s.position) && !members.includes(s.id)
           );
 
           return (
-            <div key={slot} className={`rounded-xl border overflow-hidden shadow-sm ${color}`}>
+            <div key={slot} className={`rounded-xl border shadow-sm ${color}`}>
               {/* ヘッダー */}
               <div
                 className="flex items-center justify-between px-4 py-3 cursor-pointer no-print"
@@ -172,26 +182,28 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
               </div>
 
               {/* ── 上：出勤中チップ ── */}
-              <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+              <div className="px-3 pb-3 flex flex-wrap gap-1.5">
                 {members.length === 0 ? (
-                  <span className="text-gray-400 text-sm">未割当</span>
+                  <span className="text-gray-400 text-sm italic">未割当</span>
                 ) : (
                   members.map(id => {
                     const s = staff.find(x => x.id === id);
                     const outPos = s ? !canWork(slot, s.position) : false;
+                    const abs = isAbsent(id);
+                    const reason = absenceReason(id);
+
+                    let chipClass = 'text-sm px-2.5 py-1 rounded-full cursor-pointer no-print shadow-sm border flex items-center gap-1 ';
+                    if (abs) chipClass += 'bg-orange-50 border-orange-400 text-orange-800';
+                    else if (outPos) chipClass += 'bg-orange-100 border-orange-300 text-orange-800';
+                    else chipClass += 'bg-white border-gray-300 text-gray-800';
+
                     return (
-                      <span
-                        key={id}
-                        className={`text-sm px-2.5 py-0.5 rounded-full cursor-pointer no-print shadow-sm border flex items-center gap-1 ${
-                          outPos
-                            ? 'bg-orange-100 border-orange-300 text-orange-800'
-                            : 'bg-white border-gray-300 text-gray-800'
-                        }`}
-                        onClick={() => toggleStaff(slot, id)}
-                      >
-                        {outPos && <span className="text-[10px]">★</span>}
+                      <span key={id} className={chipClass} onClick={() => toggleStaff(slot, id)}>
+                        {abs && <span className="text-[10px] font-bold">⚠</span>}
+                        {outPos && !abs && <span className="text-[10px]">★</span>}
                         {s?.name ?? id}
-                        <span className="opacity-50 ml-0.5">✕</span>
+                        {abs && <span className="text-[10px] opacity-70">({reason})</span>}
+                        <span className="opacity-40 text-xs ml-0.5">✕</span>
                       </span>
                     );
                   })
@@ -204,15 +216,15 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
 
                   {/* 削られた人（追加可能） */}
                   <div>
-                    <p className="text-xs font-bold text-gray-500 mb-1.5">
-                      削られた人（タップで追加）
-                      {available.length === 0 && <span className="font-normal ml-1 text-gray-400">なし</span>}
+                    <p className="text-xs font-bold text-gray-600 mb-1.5">
+                      削られた人
+                      {available.length === 0 && <span className="font-normal text-gray-400 ml-1">（なし）</span>}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {available.map(s => (
                         <button
                           key={s.id}
-                          className="text-sm px-3 py-1.5 rounded-full border bg-white text-gray-700 border-gray-300 hover:bg-indigo-50 transition-colors"
+                          className="text-sm px-3 py-1.5 rounded-full border bg-white text-gray-700 border-gray-300 active:bg-indigo-100 transition-colors"
                           onClick={() => toggleStaff(slot, s.id)}
                         >
                           {s.name}
@@ -221,28 +233,32 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
                     </div>
                   </div>
 
-                  {/* 欠席中 */}
-                  {absent.length > 0 && (
-                    <div>
-                      <p className="text-xs font-bold text-red-400 mb-1.5">欠席中（緊急時のみタップ）</p>
-                      <div className="flex flex-wrap gap-2">
-                        {absent.map(s => {
-                          const reason = availability[s.id]?.[selectedDay] === '×' ? '×' : '休';
-                          return (
-                            <button
-                              key={s.id}
-                              title={`欠席(${reason})。緊急時のみ追加`}
-                              className="text-sm px-3 py-1.5 rounded-full border bg-red-50 text-red-400 border-red-200 line-through"
-                              onClick={() => toggleStaff(slot, s.id)}
-                            >
-                              {s.name}
-                              <span className="ml-1 text-[10px] no-underline not-italic">{reason}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                  {/* 欠席中（赤表示・タップで追加可能） */}
+                  <div>
+                    <p className="text-xs font-bold text-red-500 mb-1.5">
+                      欠席中
+                      {absent.length === 0 && <span className="font-normal text-gray-400 ml-1">（なし）</span>}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {absent.map(s => {
+                        const reason = absenceReason(s.id);
+                        return (
+                          <button
+                            key={s.id}
+                            className="text-sm px-3 py-1.5 rounded-full border bg-red-50 text-red-600 border-red-300 flex items-center gap-1"
+                            onClick={() => toggleStaff(slot, s.id)}
+                          >
+                            <span>{s.name}</span>
+                            <span className="text-[10px] bg-red-200 text-red-700 px-1 rounded">{reason}</span>
+                            <span className="text-[10px] text-red-400">→出勤</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  )}
+                    {absent.length > 0 && (
+                      <p className="text-[10px] text-red-400 mt-1">タップすると上の出勤欄に追加されます</p>
+                    )}
+                  </div>
 
                   {/* 穴埋め（ポジション外） */}
                   {outOfPosition.length > 0 && (
@@ -258,25 +274,25 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
                         <div className="flex flex-wrap gap-2">
                           {outOfPosition.map(s => {
                             const absent2 = isAbsent(s.id);
+                            const reason = absenceReason(s.id);
                             return (
                               <button
                                 key={s.id}
-                                title="通常ポジション外"
-                                className={`text-sm px-3 py-1.5 rounded-full border-2 transition-colors ${
+                                className={`text-sm px-3 py-1.5 rounded-full border-2 flex items-center gap-1 ${
                                   absent2
-                                    ? 'bg-red-50 text-red-400 border-red-200 line-through'
+                                    ? 'bg-red-50 text-red-500 border-red-200'
                                     : 'bg-orange-50 text-orange-700 border-orange-300'
                                 }`}
                                 onClick={() => toggleStaff(slot, s.id)}
                               >
+                                <span className="text-[10px]">★</span>
                                 {s.name}
-                                <span className="ml-1 text-[10px] opacity-60">★</span>
+                                {absent2 && <span className="text-[10px] bg-red-200 text-red-700 px-1 rounded">{reason}</span>}
+                                {!absent2 && <span className="text-[10px] text-orange-400">→出勤</span>}
                               </button>
                             );
                           })}
-                          <p className="w-full text-[10px] text-orange-500 mt-1">
-                            ★ = 通常ポジション外。緊急時のみ使用してください。
-                          </p>
+                          <p className="w-full text-[10px] text-orange-500 mt-1">★ = 通常ポジション外。緊急時のみ使用。</p>
                         </div>
                       )}
                     </div>
@@ -289,9 +305,7 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
 
         {/* 日別メモ */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-          <label className="block text-sm font-bold text-gray-700 mb-2">
-            メモ・追加人員など
-          </label>
+          <label className="block text-sm font-bold text-gray-700 mb-2">メモ</label>
           <textarea
             rows={3}
             placeholder="例：この日は+1人必要、〇〇さん遅刻など"
