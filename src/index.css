@@ -13,7 +13,7 @@ body {
   flex-direction: column;
 }
 
-/* 印刷時のみ表示（hidden の !important を上書き） */
+/* 印刷時のみ表示（display:none を print で上書き） */
 .print-only {
   display: none;
 }
@@ -23,24 +23,26 @@ body {
   body { font-size: 10px; }
   @page { size: A4 landscape; margin: 8mm; }
 
-  /* モーダル印刷モード：メインアプリを隠す */
+  /* モーダル印刷モード：月表等は隠してモーダルのみ出力 */
   body.print-modal #root { display: none !important; }
+  /* モーダル印刷モードでない通常印刷時：modal-rootのモーダル背景等を隠す */
+  body:not(.print-modal) #modal-root > .fixed { display: none !important; }
 
-  /* 印刷時に overflow クリッピングを解除 */
-  body, html, #root, main {
+  /* 印刷専用コンテンツを表示 */
+  .print-only {
+    display: block !important;
+  }
+
+  /* overflow クリッピングを解除してコンテンツが切れないようにする */
+  body, html, #root, #modal-root {
     height: auto !important;
     overflow: visible !important;
   }
-  .overflow-auto, .overflow-hidden, .overflow-y-auto, .overflow-x-auto {
+  main, .overflow-auto, .overflow-hidden, .overflow-y-auto, .overflow-x-auto {
     overflow: visible !important;
     height: auto !important;
     max-height: none !important;
   }
   .h-screen { height: auto !important; }
   .flex-1 { flex: 0 0 auto !important; }
-
-  /* 印刷専用コンテンツを表示 */
-  .print-only {
-    display: block !important;
-  }
 }
