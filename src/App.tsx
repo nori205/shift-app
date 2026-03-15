@@ -146,19 +146,21 @@ export default function App() {
       {/* コンテンツ */}
       <main className="flex-1 overflow-hidden flex flex-col">
         {tab === 'monthly' && (
-          <div className="flex-1 overflow-auto p-2">
-            {/* 月間シフト表 */}
-            <MonthlyGrid
-              year={year} month={month} staff={staff}
-              shifts={monthlyShifts} holidays={holidays}
-              onCellSet={handleCellSet}
-            />
-            {/* QRコードパネル（画面・印刷両方に表示） */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* QRコード（スクロール不要の上部に固定表示） */}
             <MonthlyQRPanel
               year={year} month={month} staff={staff}
               monthly={monthlyShifts} daily={dailyShifts}
               availability={availability}
             />
+            {/* 月間シフト表（スクロール可能エリア） */}
+            <div className="flex-1 overflow-auto p-2">
+              <MonthlyGrid
+                year={year} month={month} staff={staff}
+                shifts={monthlyShifts} holidays={holidays}
+                onCellSet={handleCellSet}
+              />
+            </div>
             {/* 出れない人リスト（印刷時のみ、portal経由） */}
             <MonthlyPrintAppendix
               year={year} month={month} staff={staff}

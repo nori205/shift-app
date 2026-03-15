@@ -24,42 +24,31 @@ export default function MonthlyQRPanel({ year, month, staff, monthly, daily, ava
     const data = { v: 1, year, month, staff, monthly, daily: dailyFiltered, avail: availability };
     const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(data));
     const url = `${BASE_URL}#import=${compressed}`;
-    const byteSize = new TextEncoder().encode(url).length;
-    return { url, byteSize };
+    return { url, byteSize: new TextEncoder().encode(url).length };
   }, [year, month, staff, monthly, daily, availability]);
 
   const tooLarge = byteSize > 2900;
 
   return (
-    // 画面でも印刷でも表示（no-printなし）
-    <div className="mt-4 p-3 bg-white border border-gray-200 rounded-xl shadow-sm flex items-start gap-4">
-      <div className="flex-1">
-        <p className="font-bold text-sm text-gray-700 mb-1">
-          シフトデータ QRコード
-        </p>
-        <p className="text-xs text-gray-500 mb-1">
-          {year}年{month}月のシフトデータをQRコードにしました。<br />
-          別の端末でスキャンするとデータを読み込めます。
-        </p>
-        <p className="text-xs text-gray-400">
-          データサイズ: {byteSize} bytes
-          {tooLarge && <span className="text-red-500 ml-2">※データが大きすぎます</span>}
-        </p>
-        <p className="text-xs text-indigo-600 mt-1 no-print">
-          ← 印刷するとこのQRコードも一緒に出力されます
-        </p>
-      </div>
-      <div className="flex-shrink-0 text-center">
+    <div className="flex items-center gap-3 px-3 py-2 bg-indigo-50 border-b border-indigo-100">
+      {/* QRコード本体 */}
+      <div className="flex-shrink-0 bg-white p-1 rounded border border-indigo-200">
         {tooLarge ? (
-          <div className="w-24 h-24 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-400">
+          <div className="w-14 h-14 flex items-center justify-center text-[9px] text-gray-400 text-center">
             データ<br />大きすぎ
           </div>
         ) : (
-          <>
-            <QRCodeSVG value={url} size={96} level="M" />
-            <p className="text-[9px] text-gray-400 mt-1">スキャンして読込</p>
-          </>
+          <QRCodeSVG value={url} size={56} level="M" />
         )}
+      </div>
+      {/* 説明 */}
+      <div className="flex-1 min-w-0 no-print">
+        <p className="font-bold text-xs text-indigo-800">シフトデータ QRコード</p>
+        <p className="text-[10px] text-indigo-600 leading-snug">
+          別の端末でスキャンするとこの月のシフトを読み込めます。<br />
+          「印刷」ボタンでA4にQRコードも一緒に出ます。
+        </p>
+        {tooLarge && <p className="text-[10px] text-red-500">※データが大きすぎてQR生成できません</p>}
       </div>
     </div>
   );
