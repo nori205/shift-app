@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import LZString from 'lz-string';
 import type { Staff, MonthlyShifts, DailyShifts, HolidaySet, Tab, ShiftType, DayShift, StaffAvailability } from './types';
 import {
   loadStaff, saveStaff,
@@ -14,6 +15,8 @@ import AvailabilityInput from './components/AvailabilityInput';
 import StaffManager from './components/StaffManager';
 import Settings from './components/Settings';
 import Onboarding from './components/Onboarding';
+import QRExportModal from './components/QRExportModal';
+import AbsenceListPrint from './components/AbsenceListPrint';
 import { autoGenerate } from './components/AutoScheduler';
 
 export default function App() {
@@ -28,6 +31,37 @@ export default function App() {
   const [dailyShifts, setDailyShifts] = useState<DailyShifts>(loadDailyShifts);
   const [holidays, setHolidays] = useState<HolidaySet>(loadHolidays);
   const [availability, setAvailability] = useState<StaffAvailability>(loadAvailability);
+
+  const [showQR, setShowQR] = useState(false);
+  const [showAbsence, setShowAbsence] = useState(false);
+
+  // QRコードインポート：URLハッシュに #import=... があれば読み込む
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#import=')) {
+      const encoded = hash.slice('#import='.length);
+      try {
+        const json = LZString.decompressFromEncodedURIComponent(encoded);
+        if (!json) throw new Error('decompress failed');
+        const data = JSON.parse(json);
+        if (data.v === 1) {
+          if (confirm('QRコードのデータを読み込みますか？現在のデータに上書きされます。')) {
+            if (data.staff) { setStaff(data.staff); saveStaff(data.staff); }
+            if (data.monthly) { setMonthlyShifts(data.monthly); saveMonthlyShifts(data.monthly); }
+            if (data.daily) { setDailyShifts(data.daily); saveDailyShifts(data.daily); }
+            if (data.avail) { setAvailability(data.avail); saveAvailability(data.avail); }
+            if (data.year) setYear(data.year);
+            if (data.month) setMonth(data.month);
+            alert('データを読み込みました！');
+          }
+        }
+      } catch {
+        alert('QRコードのデータを読み込めませんでした。');
+      }
+      // ハッシュをクリアして戻る
+      history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
   function handleOnboardingComplete(s: Staff[]) {
     setStaff(s); saveStaff(s);
@@ -84,18 +118,32 @@ export default function App() {
       {/* ヘッダー */}
       <header className="no-print relative z-40 bg-indigo-700 text-white px-4 py-3 flex items-center justify-between shadow">
         <h1 className="text-lg font-bold">シフト管理</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
           <button className="p-1 hover:bg-indigo-600 rounded" onClick={prevMonth}>◀</button>
           <span className="font-medium min-w-[80px] text-center">{year}年{month}月</span>
           <button className="p-1 hover:bg-indigo-600 rounded" onClick={nextMonth}>▶</button>
           {(tab === 'monthly' || tab === 'daily') && (
             <button
-              className="ml-2 bg-white text-indigo-700 text-xs px-3 py-1 rounded-full font-medium"
+              className="bg-white text-indigo-700 text-xs px-2.5 py-1 rounded-full font-medium"
               onClick={() => window.print()}
             >
               印刷
             </button>
           )}
+          {tab === 'monthly' && (
+            <button
+              className="bg-orange-400 text-white text-xs px-2.5 py-1 rounded-full font-medium"
+              onClick={() => setShowAbsence(true)}
+            >
+              出れない人
+            </button>
+          )}
+          <button
+            className="bg-green-500 text-white text-xs px-2.5 py-1 rounded-full font-medium"
+            onClick={() => setShowQR(true)}
+          >
+            QR
+          </button>
         </div>
       </header>
 
@@ -125,6 +173,8 @@ export default function App() {
           <DailyView
             year={year} month={month} staff={staff}
             shifts={dailyShifts} holidays={holidays}
+            monthly={monthlyShifts}
+            availability={availability}
             onUpdate={handleDailyUpdate}
           />
         )}
@@ -159,6 +209,28 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      {/* モーダル */}
+      {showQR && (
+        <QRExportModal
+          year={year} month={month}
+          staff={staff}
+          monthly={monthlyShifts}
+          daily={dailyShifts}
+          availability={availability}
+          onClose={() => setShowQR(false)}
+        />
+      )}
+      {showAbsence && (
+        <AbsenceListPrint
+          year={year} month={month}
+          staff={staff}
+          monthly={monthlyShifts}
+          availability={availability}
+          holidays={holidays}
+          onClose={() => setShowAbsence(false)}
+        />
+      )}
     </div>
   );
 }

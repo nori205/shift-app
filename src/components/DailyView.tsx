@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Staff, DailyShifts, DayShift, HolidaySet } from '../types';
 import { canWorkLunch, canWorkNight, canWork18 } from '../utils/rules';
+import type { MonthlyShifts, StaffAvailability } from '../types';
 
 interface Props {
   year: number;
@@ -8,6 +9,8 @@ interface Props {
   staff: Staff[];
   shifts: DailyShifts;
   holidays: HolidaySet;
+  monthly: MonthlyShifts;
+  availability: StaffAvailability;
   onUpdate: (dateKey: string, shift: DayShift) => void;
 }
 
@@ -38,12 +41,15 @@ function slotRequired(slot: Slot, isWE: boolean): number {
   return isWE ? 0 : 2; // 土日祝は18時枠なし
 }
 
-export default function DailyView({ year, month, staff, shifts, holidays, onUpdate }: Props) {
+const WORK_VALUES = ['昼', '夜①', '夜②', '夜', '全'];
+
+export default function DailyView({ year, month, staff, shifts, holidays, monthly, availability, onUpdate }: Props) {
   const today = new Date();
   const initDay = today.getFullYear() === year && today.getMonth() + 1 === month
     ? today.getDate() : 1;
   const [selectedDay, setSelectedDay] = useState(initDay);
   const [activeSlot, setActiveSlot] = useState<Slot | null>(null);
+  const [emergencySlot, setEmergencySlot] = useState<Slot | null>(null);
 
   useEffect(() => {
     const t = new Date();
@@ -178,18 +184,25 @@ export default function DailyView({ year, month, staff, shifts, holidays, onUpda
               {isActive && (
                 <div className="border-t border-white/60 bg-white/70 px-3 py-3 no-print">
                   <p className="text-xs text-gray-500 mb-2">タップで追加 / もう一度タップで解除</p>
+                  {/* 通常ピッカー：ポジション対応スタッフ */}
                   {staff.filter(s => canWork(slot, s.position)).length === 0 ? (
                     <p className="text-sm text-gray-400">このシフトに入れるスタッフがいません</p>
                   ) : (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-3">
                       {staff.filter(s => canWork(slot, s.position)).map(s => {
                         const assigned = members.includes(s.id);
+                        // 当日シフトなし or ×  の場合は薄く表示
+                        const dayShift = monthly[s.id]?.[selectedDay] ?? '';
+                        const dayAvail = availability[s.id]?.[selectedDay] ?? '';
+                        const isAbsent = dayAvail === '×' || (!WORK_VALUES.includes(dayShift) && dayShift === '休');
                         return (
                           <button
                             key={s.id}
                             className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
                               assigned
                                 ? 'bg-indigo-600 text-white border-indigo-600'
+                                : isAbsent
+                                ? 'bg-red-50 text-red-400 border-red-200 line-through'
                                 : 'bg-white text-gray-700 border-gray-300'
                             }`}
                             onClick={() => toggleStaff(slot, s.id)}
@@ -200,6 +213,49 @@ export default function DailyView({ year, month, staff, shifts, holidays, onUpda
                       })}
                     </div>
                   )}
+
+                  {/* 穴埋め追加セクション：ポジション関係なく全スタッフ */}
+                  <div className="border-t border-orange-200 pt-2">
+                    <button
+                      className="text-xs text-orange-600 font-bold flex items-center gap-1 mb-2"
+                      onClick={() => setEmergencySlot(emergencySlot === slot ? null : slot)}
+                    >
+                      <span>{emergencySlot === slot ? '▲' : '▼'}</span>
+                      穴埋め追加（ポジション関係なく）
+                    </button>
+                    {emergencySlot === slot && (
+                      <div className="flex flex-wrap gap-2">
+                        {staff
+                          .filter(s => !canWork(slot, s.position))
+                          .map(s => {
+                            const assigned = members.includes(s.id);
+                            const dayShift = monthly[s.id]?.[selectedDay] ?? '';
+                            const dayAvail = availability[s.id]?.[selectedDay] ?? '';
+                            const isAbsent = dayAvail === '×' || dayShift === '休';
+                            return (
+                              <button
+                                key={s.id}
+                                title={`通常ポジション外。当日: ${dayShift || dayAvail || '未設定'}`}
+                                className={`text-sm px-3 py-1.5 rounded-full border-2 transition-colors ${
+                                  assigned
+                                    ? 'bg-orange-500 text-white border-orange-500'
+                                    : isAbsent
+                                    ? 'bg-red-50 text-red-400 border-red-200 line-through'
+                                    : 'bg-orange-50 text-orange-700 border-orange-300'
+                                }`}
+                                onClick={() => toggleStaff(slot, s.id)}
+                              >
+                                {s.name}
+                                <span className="ml-1 text-[10px] opacity-60">★</span>
+                              </button>
+                            );
+                          })}
+                        <p className="w-full text-[10px] text-orange-500 mt-1">
+                          ★ = 通常ポジション外。緊急時のみ使用してください。
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
