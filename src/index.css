@@ -17,5 +17,9 @@ body {
   .no-print { display: none !important; }
   body { font-size: 10px; }
   @page { size: A4 landscape; margin: 8mm; }
+
+  /* モーダル印刷モード時：メインアプリを隠してモーダルのみ印刷 */
+  body.print-modal #root { display: none !important; }
+  #modal-root { position: static; }
 }
 

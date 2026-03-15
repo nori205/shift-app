@@ -1,4 +1,6 @@
+import { createPortal } from 'react-dom';
 import type { Staff, MonthlyShifts, StaffAvailability, HolidaySet } from '../types';
+import { printModal } from '../utils/printModal';
 
 interface Props {
   year: number;
@@ -16,7 +18,7 @@ function getDow(y: number, m: number, d: number) { return new Date(y, m - 1, d).
 const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 const WORK_VALUES = ['昼', '夜①', '夜②', '夜', '全'];
 
-export default function AbsenceListPrint({ year, month, staff, monthly, availability, holidays, onClose }: Props) {
+function AbsenceContent({ year, month, staff, monthly, availability, holidays, onClose }: Props) {
   const days = daysInMonth(year, month);
   const dayArr = Array.from({ length: days }, (_, i) => i + 1);
 
@@ -26,9 +28,6 @@ export default function AbsenceListPrint({ year, month, staff, monthly, availabi
     return dow === 0 || dow === 6 || !!holidays[key];
   }
 
-  // 各日の「出れない人」リスト
-  // - MonthlyShiftsで '休' もしくは未設定 (シフトがない)
-  // - または availability が '×'
   function getAbsent(day: number): { name: string; reason: string }[] {
     const absent: { name: string; reason: string }[] = [];
     for (const s of staff) {
@@ -39,7 +38,6 @@ export default function AbsenceListPrint({ year, month, staff, monthly, availabi
       } else if (shift === '休') {
         absent.push({ name: s.name, reason: '休み' });
       } else if (!WORK_VALUES.includes(shift)) {
-        // シフト未設定（空白）で出勤記録なし
         absent.push({ name: s.name, reason: '未割当' });
       }
     }
@@ -47,15 +45,15 @@ export default function AbsenceListPrint({ year, month, staff, monthly, availabi
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 print:static print:bg-white print:p-0">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto print:rounded-none print:shadow-none print:max-h-none print:overflow-visible">
-        {/* ヘッダー */}
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 print:fixed print:inset-0 print:bg-white print:z-50 print:block print:p-0">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto print:rounded-none print:shadow-none print:max-h-none print:overflow-visible print:max-w-none">
+        {/* ヘッダー（画面のみ） */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 no-print">
           <h2 className="font-bold text-lg text-gray-800">出れない人リスト</h2>
           <div className="flex gap-2">
             <button
               className="bg-indigo-600 text-white text-sm px-4 py-1.5 rounded-lg font-medium"
-              onClick={() => window.print()}
+              onClick={printModal}
             >
               A4印刷
             </button>
@@ -105,7 +103,7 @@ export default function AbsenceListPrint({ year, month, staff, monthly, availabi
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {absent.map(a => (
-                            <span key={a.name} className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                            <span key={a.name} className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full print:bg-transparent print:border print:border-red-300">
                               {a.name}
                               <span className="opacity-60">({a.reason})</span>
                             </span>
@@ -122,4 +120,10 @@ export default function AbsenceListPrint({ year, month, staff, monthly, availabi
       </div>
     </div>
   );
+}
+
+export default function AbsenceListPrint(props: Props) {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return null;
+  return createPortal(<AbsenceContent {...props} />, modalRoot);
 }
