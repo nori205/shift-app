@@ -29,8 +29,7 @@ function buildQRUrl(year: number, month: number, staff: Staff[], monthly: Monthl
   return `${BASE_URL}#import=${compressed}`;
 }
 
-// 印刷専用：画面では非表示、print時のみ表示
-// Page 2: 出れない人リスト ＋ QRコード（月表の後に続く）
+// 印刷時のみ表示（画面では非表示）。月表の直後に続いて同じ印刷ジョブで出力される。
 export default function MonthlyPrintAppendix({ year, month, staff, monthly, daily, availability, holidays }: Props) {
   const days = daysInMonth(year, month);
   const dayArr = Array.from({ length: days }, (_, i) => i + 1);
@@ -61,27 +60,34 @@ export default function MonthlyPrintAppendix({ year, month, staff, monthly, dail
   const qrTooLarge = new TextEncoder().encode(qrUrl).length > 2900;
 
   return (
-    // 画面では非表示、印刷時のみ表示。改ページして別ページに出力
-    <div className="hidden print:block" style={{ pageBreakBefore: 'always' }}>
-      <div className="flex items-start justify-between mb-3">
-        <h2 className="text-base font-bold text-gray-900">
-          {year}年{month}月　出れない人リスト（削られた人・欠席）
-        </h2>
-        {/* QRコード */}
+    <div className="print-only mt-4">
+      {/* タイトル行 ＋ QRコード */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '6px' }}>
+        <div>
+          <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '2px' }}>
+            {year}年{month}月　出れない人リスト
+          </div>
+          <div style={{ fontSize: '7px', color: '#6b7280' }}>
+            削=未割当　×=出勤不可　休=休日申請
+          </div>
+        </div>
         {!qrTooLarge && (
-          <div className="flex flex-col items-center ml-4 flex-shrink-0">
-            <QRCodeSVG value={qrUrl} size={90} level="M" />
-            <p className="text-[8px] text-gray-500 mt-1 text-center">シフトデータ読込</p>
+          <div style={{ textAlign: 'center', flexShrink: 0, marginLeft: '12px' }}>
+            <QRCodeSVG value={qrUrl} size={80} level="M" />
+            <div style={{ fontSize: '7px', color: '#6b7280', marginTop: '2px' }}>
+              シフトデータQR
+            </div>
           </div>
         )}
       </div>
 
-      <table className="w-full border-collapse" style={{ fontSize: '8px' }}>
+      {/* 出れない人テーブル */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8px' }}>
         <thead>
           <tr style={{ backgroundColor: '#f3f4f6' }}>
-            <th className="border border-gray-400 px-1 py-0.5 text-left w-12">日付</th>
-            <th className="border border-gray-400 px-1 py-0.5 text-left w-6">曜</th>
-            <th className="border border-gray-400 px-1 py-0.5 text-left">削られた人（削）・欠席（×/休）</th>
+            <th style={{ border: '1px solid #9ca3af', padding: '2px 4px', textAlign: 'left', width: '36px' }}>日</th>
+            <th style={{ border: '1px solid #9ca3af', padding: '2px 4px', textAlign: 'left', width: '18px' }}>曜</th>
+            <th style={{ border: '1px solid #9ca3af', padding: '2px 4px', textAlign: 'left' }}>削られた人・欠席者</th>
           </tr>
         </thead>
         <tbody>
@@ -89,28 +95,24 @@ export default function MonthlyPrintAppendix({ year, month, staff, monthly, dail
             const dow = getDow(year, month, d);
             const isWE = isHoliday(d);
             const absent = getAbsent(d);
-            const bgColor = isWE
-              ? (dow === 6 ? '#eff6ff' : '#fef2f2')
-              : '#ffffff';
-            const textColor = isWE
-              ? (dow === 6 ? '#1d4ed8' : '#b91c1c')
-              : '#374151';
+            const bgColor = isWE ? (dow === 6 ? '#dbeafe' : '#fee2e2') : '#ffffff';
+            const color = isWE ? (dow === 6 ? '#1e40af' : '#991b1b') : '#374151';
             return (
               <tr key={d} style={{ backgroundColor: bgColor }}>
-                <td className="border border-gray-300 px-1 py-0.5 font-bold" style={{ color: textColor }}>
+                <td style={{ border: '1px solid #d1d5db', padding: '1px 4px', fontWeight: 'bold', color }}>
                   {month}/{d}
                 </td>
-                <td className="border border-gray-300 px-1 py-0.5 text-center font-medium" style={{ color: textColor }}>
+                <td style={{ border: '1px solid #d1d5db', padding: '1px 4px', textAlign: 'center', color }}>
                   {DOW_LABELS[dow]}
                 </td>
-                <td className="border border-gray-300 px-1 py-0.5">
+                <td style={{ border: '1px solid #d1d5db', padding: '1px 4px' }}>
                   {absent.length === 0 ? (
                     <span style={{ color: '#9ca3af' }}>全員</span>
                   ) : (
                     absent.map(a => (
-                      <span key={a.name} style={{ marginRight: '6px', whiteSpace: 'nowrap' }}>
+                      <span key={a.name} style={{ marginRight: '8px', whiteSpace: 'nowrap', color: '#374151' }}>
                         {a.name}
-                        <span style={{ opacity: 0.7, marginLeft: '2px' }}>({a.reason})</span>
+                        <span style={{ color: '#6b7280', marginLeft: '2px' }}>({a.reason})</span>
                       </span>
                     ))
                   )}
@@ -120,9 +122,6 @@ export default function MonthlyPrintAppendix({ year, month, staff, monthly, dail
           })}
         </tbody>
       </table>
-      <p className="mt-1" style={{ fontSize: '7px', color: '#6b7280' }}>
-        削=削られた（未割当）　×=出勤不可　休=休日申請
-      </p>
     </div>
   );
 }

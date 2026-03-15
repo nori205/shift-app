@@ -17,7 +17,6 @@ type Slot = 'lunch' | 'shift17' | 'shift18';
 
 function daysInMonth(y: number, m: number) { return new Date(y, m, 0).getDate(); }
 function getDow(y: number, m: number, d: number) { return new Date(y, m - 1, d).getDay(); }
-
 const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
 function isWeekendOrHoliday(y: number, m: number, d: number, holidays: HolidaySet): boolean {
@@ -43,20 +42,17 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
   const initDay = today.getFullYear() === year && today.getMonth() + 1 === month
     ? today.getDate() : 1;
   const [selectedDay, setSelectedDay] = useState(initDay);
-  const [activeSlot, setActiveSlot] = useState<Slot | null>(null);
   const [showEmergency, setShowEmergency] = useState<Slot | null>(null);
 
   useEffect(() => {
     const t = new Date();
     const d = t.getFullYear() === year && t.getMonth() + 1 === month ? t.getDate() : 1;
     setSelectedDay(Math.min(d, daysInMonth(year, month)));
-    setActiveSlot(null);
     setShowEmergency(null);
   }, [year, month]);
 
   const days = daysInMonth(year, month);
   const dayArr = Array.from({ length: days }, (_, i) => i + 1);
-
   const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
   const isWE = isWeekendOrHoliday(year, month, selectedDay, holidays);
   const currentShift: DayShift = shifts[dateKey] || { lunch: [], shift17: [], shift18: [] };
@@ -64,21 +60,12 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
   function toggleStaff(slot: Slot, staffId: string) {
     const arr = [...(currentShift[slot] || [])];
     const idx = arr.indexOf(staffId);
-    if (idx >= 0) {
-      // 削除：ピッカーは開いたまま
-      arr.splice(idx, 1);
-    } else {
-      // 追加：ピッカーを閉じてチップを見せる
-      arr.push(staffId);
-      setActiveSlot(null);
-      setShowEmergency(null);
-    }
+    if (idx >= 0) arr.splice(idx, 1);
+    else arr.push(staffId);
     onUpdate(dateKey, { ...currentShift, [slot]: arr });
   }
 
-  function inSlot(slot: Slot): string[] {
-    return currentShift[slot] || [];
-  }
+  function inSlot(slot: Slot): string[] { return currentShift[slot] || []; }
 
   function isAbsent(staffId: string): boolean {
     const avail = availability[staffId]?.[selectedDay] ?? '';
@@ -87,19 +74,17 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
   }
 
   function absenceReason(staffId: string): string {
-    const avail = availability[staffId]?.[selectedDay] ?? '';
-    const shift = monthly[staffId]?.[selectedDay] ?? '';
-    if (avail === '×') return '×';
-    if (shift === '休') return '休';
+    if ((availability[staffId]?.[selectedDay] ?? '') === '×') return '×';
+    if ((monthly[staffId]?.[selectedDay] ?? '') === '休') return '休';
     return '';
   }
 
   const dow = getDow(year, month, selectedDay);
 
-  const slotDefs: { slot: Slot; label: string; sublabel: string; color: string; headerColor: string }[] = [
-    { slot: 'lunch',   label: '昼シフト',  sublabel: '〜17:00頃',  color: 'bg-amber-50 border-amber-200',   headerColor: 'text-amber-800' },
-    { slot: 'shift17', label: '夜①',       sublabel: '17:00〜',    color: 'bg-indigo-50 border-indigo-200', headerColor: 'text-indigo-800' },
-    { slot: 'shift18', label: '夜②',       sublabel: '18:00〜',    color: 'bg-purple-50 border-purple-200', headerColor: 'text-purple-800' },
+  const slotDefs: { slot: Slot; label: string; sublabel: string; borderColor: string; bgHeader: string }[] = [
+    { slot: 'lunch',   label: '昼シフト',  sublabel: '〜17:00',  borderColor: 'border-amber-300',  bgHeader: 'bg-amber-100' },
+    { slot: 'shift17', label: '夜①',       sublabel: '17:00〜',  borderColor: 'border-indigo-300', bgHeader: 'bg-indigo-100' },
+    { slot: 'shift18', label: '夜②',       sublabel: '18:00〜',  borderColor: 'border-purple-300', bgHeader: 'bg-purple-100' },
   ];
 
   return (
@@ -127,174 +112,141 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
 
       {/* 日付ヘッダー */}
       <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100 flex items-center gap-2 flex-wrap">
-        <span className="font-bold text-indigo-800">
-          {month}月{selectedDay}日（{DOW_LABELS[dow]}）
-        </span>
+        <span className="font-bold text-indigo-800">{month}月{selectedDay}日（{DOW_LABELS[dow]}）</span>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isWE ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
           {isWE ? '土日祝' : '平日'}
         </span>
-        {isWE && <span className="text-xs text-gray-500">※夜①5人、夜②不要</span>}
-        {!isWE && <span className="text-xs text-gray-500">※夜①1人 / 夜②2人</span>}
+        {isWE && <span className="text-xs text-gray-500">夜①5人・夜②不要</span>}
+        {!isWE && <span className="text-xs text-gray-500">夜①1人・夜②2人</span>}
       </div>
 
       {/* スロット一覧 */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-        {slotDefs.map(({ slot, label, sublabel, color, headerColor }) => {
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+        {slotDefs.map(({ slot, label, sublabel, borderColor, bgHeader }) => {
           const members = inSlot(slot);
           const req = slotRequired(slot, isWE);
-          const isActive = activeSlot === slot;
           const notNeeded = isWE && slot === 'shift18';
           const ok = notNeeded || members.length >= req;
 
-          const eligibleNotAssigned = staff.filter(s =>
-            canWork(slot, s.position) && !members.includes(s.id)
-          );
-          const available = eligibleNotAssigned.filter(s => !isAbsent(s.id));
-          const absent = eligibleNotAssigned.filter(s => isAbsent(s.id));
-          const outOfPosition = staff.filter(s =>
-            !canWork(slot, s.position) && !members.includes(s.id)
-          );
+          const eligibleNotAssigned = staff.filter(s => canWork(slot, s.position) && !members.includes(s.id));
+          const available = eligibleNotAssigned.filter(s => !isAbsent(s.id));   // 削られた人
+          const absent   = eligibleNotAssigned.filter(s => isAbsent(s.id));     // 欠席中
+          const outOfPos = staff.filter(s => !canWork(slot, s.position) && !members.includes(s.id));
 
           return (
-            <div key={slot} className={`rounded-xl border shadow-sm ${color}`}>
-              {/* ヘッダー */}
-              <div
-                className="flex items-center justify-between px-4 py-3 cursor-pointer no-print"
-                onClick={() => {
-                  setActiveSlot(isActive ? null : slot);
-                  setShowEmergency(null);
-                }}
-              >
+            <div key={slot} className={`rounded-xl border-2 ${borderColor} bg-white shadow-sm overflow-hidden`}>
+
+              {/* ── ヘッダー ── */}
+              <div className={`${bgHeader} px-4 py-2.5 flex items-center justify-between`}>
                 <div>
-                  <span className={`font-bold text-base ${headerColor}`}>{label}</span>
+                  <span className="font-bold text-gray-800">{label}</span>
                   <span className="ml-2 text-xs text-gray-500">{sublabel}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {notNeeded ? (
-                    <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">土日祝不要</span>
-                  ) : (
-                    <span className={`font-bold text-sm ${ok ? 'text-green-600' : 'text-red-500'}`}>
-                      {members.length}/{req}人
-                    </span>
-                  )}
-                  <span className="text-gray-400 text-sm">{isActive ? '▲' : '▼'}</span>
-                </div>
+                {notNeeded ? (
+                  <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">土日祝不要</span>
+                ) : (
+                  <span className={`font-bold text-sm ${ok ? 'text-green-700' : 'text-red-600'}`}>
+                    {members.length}/{req}人
+                  </span>
+                )}
               </div>
 
-              {/* ── 上：出勤中チップ ── */}
-              <div className="px-3 pb-3 flex flex-wrap gap-1.5">
-                {members.length === 0 ? (
-                  <span className="text-gray-400 text-sm italic">未割当</span>
-                ) : (
-                  members.map(id => {
+              {/* ── 出勤中（上） ── */}
+              <div className="px-3 pt-2.5 pb-2">
+                <p className="text-[10px] font-bold text-gray-500 mb-1.5">出勤中（✕で削除）</p>
+                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                  {members.length === 0 ? (
+                    <span className="text-gray-300 text-sm">未割当</span>
+                  ) : members.map(id => {
                     const s = staff.find(x => x.id === id);
                     const outPos = s ? !canWork(slot, s.position) : false;
                     const abs = isAbsent(id);
                     const reason = absenceReason(id);
-
-                    let chipClass = 'text-sm px-2.5 py-1 rounded-full cursor-pointer no-print shadow-sm border flex items-center gap-1 ';
-                    if (abs) chipClass += 'bg-orange-50 border-orange-400 text-orange-800';
-                    else if (outPos) chipClass += 'bg-orange-100 border-orange-300 text-orange-800';
-                    else chipClass += 'bg-white border-gray-300 text-gray-800';
-
+                    let cls = 'text-sm px-3 py-1 rounded-full border cursor-pointer no-print shadow-sm flex items-center gap-1 ';
+                    if (abs)    cls += 'bg-orange-50 border-orange-400 text-orange-800';
+                    else if (outPos) cls += 'bg-orange-100 border-orange-300 text-orange-700';
+                    else        cls += 'bg-indigo-50 border-indigo-300 text-indigo-800';
                     return (
-                      <span key={id} className={chipClass} onClick={() => toggleStaff(slot, id)}>
-                        {abs && <span className="text-[10px] font-bold">⚠</span>}
+                      <span key={id} className={cls} onClick={() => toggleStaff(slot, id)}>
+                        {abs && <span className="text-[10px]">⚠</span>}
                         {outPos && !abs && <span className="text-[10px]">★</span>}
                         {s?.name ?? id}
-                        {abs && <span className="text-[10px] opacity-70">({reason})</span>}
-                        <span className="opacity-40 text-xs ml-0.5">✕</span>
+                        {abs && <span className="text-[10px] opacity-60">({reason})</span>}
+                        <span className="opacity-40">✕</span>
                       </span>
                     );
-                  })
-                )}
+                  })}
+                </div>
               </div>
 
-              {/* ── 下：削られた人 & 欠席（展開時） ── */}
-              {isActive && (
-                <div className="border-t border-white/60 bg-white/70 px-3 py-3 no-print space-y-3">
+              {/* ── 削られた人（常時表示） ── */}
+              <div className="border-t border-gray-100 px-3 py-2 no-print">
+                <p className="text-[10px] font-bold text-gray-500 mb-1.5">
+                  削られた人
+                  {available.length === 0 && <span className="font-normal text-gray-300 ml-1">なし</span>}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {available.map(s => (
+                    <button
+                      key={s.id}
+                      className="text-sm px-3 py-1 rounded-full border border-gray-300 bg-gray-50 text-gray-700 active:bg-indigo-50 active:border-indigo-400"
+                      onClick={() => toggleStaff(slot, s.id)}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                  {/* 削られた人（追加可能） */}
-                  <div>
-                    <p className="text-xs font-bold text-gray-600 mb-1.5">
-                      削られた人
-                      {available.length === 0 && <span className="font-normal text-gray-400 ml-1">（なし）</span>}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {available.map(s => (
-                        <button
-                          key={s.id}
-                          className="text-sm px-3 py-1.5 rounded-full border bg-white text-gray-700 border-gray-300 active:bg-indigo-100 transition-colors"
-                          onClick={() => toggleStaff(slot, s.id)}
-                        >
-                          {s.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              {/* ── 欠席中（常時表示） ── */}
+              <div className="border-t border-red-50 px-3 py-2 no-print">
+                <p className="text-[10px] font-bold text-red-500 mb-1.5">
+                  欠席中（タップして出勤へ追加）
+                  {absent.length === 0 && <span className="font-normal text-gray-300 ml-1">なし</span>}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {absent.map(s => {
+                    const reason = absenceReason(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        className="text-sm px-3 py-1 rounded-full border border-red-300 bg-red-50 text-red-700 flex items-center gap-1 active:bg-red-100"
+                        onClick={() => toggleStaff(slot, s.id)}
+                      >
+                        {s.name}
+                        <span className="text-[10px] bg-red-200 px-1 rounded font-bold">{reason}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-                  {/* 欠席中（赤表示・タップで追加可能） */}
-                  <div>
-                    <p className="text-xs font-bold text-red-500 mb-1.5">
-                      欠席中
-                      {absent.length === 0 && <span className="font-normal text-gray-400 ml-1">（なし）</span>}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {absent.map(s => {
+              {/* ── 穴埋め（ポジション外、折りたたみ） ── */}
+              {outOfPos.length > 0 && (
+                <div className="border-t border-orange-100 px-3 py-2 no-print">
+                  <button
+                    className="text-[10px] font-bold text-orange-500 flex items-center gap-1 mb-1.5"
+                    onClick={() => setShowEmergency(showEmergency === slot ? null : slot)}
+                  >
+                    {showEmergency === slot ? '▲' : '▼'} 穴埋め（ポジション外）
+                  </button>
+                  {showEmergency === slot && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {outOfPos.map(s => {
+                        const abs2 = isAbsent(s.id);
                         const reason = absenceReason(s.id);
                         return (
                           <button
                             key={s.id}
-                            className="text-sm px-3 py-1.5 rounded-full border bg-red-50 text-red-600 border-red-300 flex items-center gap-1"
+                            className={`text-sm px-3 py-1 rounded-full border-2 flex items-center gap-1 ${abs2 ? 'border-red-200 bg-red-50 text-red-500' : 'border-orange-300 bg-orange-50 text-orange-700'}`}
                             onClick={() => toggleStaff(slot, s.id)}
                           >
-                            <span>{s.name}</span>
-                            <span className="text-[10px] bg-red-200 text-red-700 px-1 rounded">{reason}</span>
-                            <span className="text-[10px] text-red-400">→出勤</span>
+                            ★{s.name}
+                            {abs2 && <span className="text-[10px] bg-red-200 px-1 rounded">{reason}</span>}
                           </button>
                         );
                       })}
-                    </div>
-                    {absent.length > 0 && (
-                      <p className="text-[10px] text-red-400 mt-1">タップすると上の出勤欄に追加されます</p>
-                    )}
-                  </div>
-
-                  {/* 穴埋め（ポジション外） */}
-                  {outOfPosition.length > 0 && (
-                    <div className="border-t border-orange-200 pt-2">
-                      <button
-                        className="text-xs text-orange-600 font-bold flex items-center gap-1 mb-2"
-                        onClick={() => setShowEmergency(showEmergency === slot ? null : slot)}
-                      >
-                        <span>{showEmergency === slot ? '▲' : '▼'}</span>
-                        穴埋め（ポジション外から追加）
-                      </button>
-                      {showEmergency === slot && (
-                        <div className="flex flex-wrap gap-2">
-                          {outOfPosition.map(s => {
-                            const absent2 = isAbsent(s.id);
-                            const reason = absenceReason(s.id);
-                            return (
-                              <button
-                                key={s.id}
-                                className={`text-sm px-3 py-1.5 rounded-full border-2 flex items-center gap-1 ${
-                                  absent2
-                                    ? 'bg-red-50 text-red-500 border-red-200'
-                                    : 'bg-orange-50 text-orange-700 border-orange-300'
-                                }`}
-                                onClick={() => toggleStaff(slot, s.id)}
-                              >
-                                <span className="text-[10px]">★</span>
-                                {s.name}
-                                {absent2 && <span className="text-[10px] bg-red-200 text-red-700 px-1 rounded">{reason}</span>}
-                                {!absent2 && <span className="text-[10px] text-orange-400">→出勤</span>}
-                              </button>
-                            );
-                          })}
-                          <p className="w-full text-[10px] text-orange-500 mt-1">★ = 通常ポジション外。緊急時のみ使用。</p>
-                        </div>
-                      )}
+                      <p className="w-full text-[10px] text-orange-400">★=通常ポジション外</p>
                     </div>
                   )}
                 </div>
@@ -303,12 +255,12 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
           );
         })}
 
-        {/* 日別メモ */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-          <label className="block text-sm font-bold text-gray-700 mb-2">メモ</label>
+        {/* メモ */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
+          <label className="block text-xs font-bold text-gray-600 mb-1.5">メモ</label>
           <textarea
-            rows={3}
-            placeholder="例：この日は+1人必要、〇〇さん遅刻など"
+            rows={2}
+            placeholder="遅刻・追加人員など"
             value={currentShift.notes ?? ''}
             onChange={e => onUpdate(dateKey, { ...currentShift, notes: e.target.value })}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none bg-gray-50"
