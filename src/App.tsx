@@ -15,9 +15,9 @@ import AvailabilityInput from './components/AvailabilityInput';
 import StaffManager from './components/StaffManager';
 import Settings from './components/Settings';
 import Onboarding from './components/Onboarding';
-import QRExportModal from './components/QRExportModal';
 import AbsenceListPrint from './components/AbsenceListPrint';
 import MonthlyPrintAppendix from './components/MonthlyPrintAppendix';
+import MonthlyQRPanel from './components/MonthlyQRPanel';
 import { autoGenerate } from './components/AutoScheduler';
 
 export default function App() {
@@ -32,8 +32,6 @@ export default function App() {
   const [dailyShifts, setDailyShifts] = useState<DailyShifts>(loadDailyShifts);
   const [holidays, setHolidays] = useState<HolidaySet>(loadHolidays);
   const [availability, setAvailability] = useState<StaffAvailability>(loadAvailability);
-
-  const [showQR, setShowQR] = useState(false);
   const [showAbsence, setShowAbsence] = useState(false);
 
   // QRコードインポート：URLハッシュに #import=... があれば読み込む
@@ -47,11 +45,11 @@ export default function App() {
         const data = JSON.parse(json);
         if (data.v === 1) {
           if (confirm('QRコードのデータを読み込みますか？現在のデータに上書きされます。')) {
-            if (data.staff) { setStaff(data.staff); saveStaff(data.staff); }
+            if (data.staff)   { setStaff(data.staff);           saveStaff(data.staff); }
             if (data.monthly) { setMonthlyShifts(data.monthly); saveMonthlyShifts(data.monthly); }
-            if (data.daily) { setDailyShifts(data.daily); saveDailyShifts(data.daily); }
-            if (data.avail) { setAvailability(data.avail); saveAvailability(data.avail); }
-            if (data.year) setYear(data.year);
+            if (data.daily)   { setDailyShifts(data.daily);     saveDailyShifts(data.daily); }
+            if (data.avail)   { setAvailability(data.avail);    saveAvailability(data.avail); }
+            if (data.year)  setYear(data.year);
             if (data.month) setMonth(data.month);
             alert('データを読み込みました！');
           }
@@ -59,7 +57,6 @@ export default function App() {
       } catch {
         alert('QRコードのデータを読み込めませんでした。');
       }
-      // ハッシュをクリアして戻る
       history.replaceState(null, '', window.location.pathname);
     }
   }, []);
@@ -133,18 +130,12 @@ export default function App() {
           )}
           {tab === 'monthly' && (
             <button
-              className="bg-orange-400 text-white text-xs px-2.5 py-1 rounded-full font-medium"
+              className="bg-orange-400 text-white text-xs px-2.5 py-1 rounded-full font-medium no-print"
               onClick={() => setShowAbsence(true)}
             >
               出れない人
             </button>
           )}
-          <button
-            className="bg-green-500 text-white text-xs px-2.5 py-1 rounded-full font-medium"
-            onClick={() => setShowQR(true)}
-          >
-            QR
-          </button>
         </div>
       </header>
 
@@ -156,12 +147,19 @@ export default function App() {
       <main className="flex-1 overflow-hidden flex flex-col">
         {tab === 'monthly' && (
           <div className="flex-1 overflow-auto p-2">
+            {/* 月間シフト表 */}
             <MonthlyGrid
               year={year} month={month} staff={staff}
               shifts={monthlyShifts} holidays={holidays}
               onCellSet={handleCellSet}
             />
-            {/* 印刷時のみ表示：出れない人リスト＋QRコード */}
+            {/* QRコードパネル（画面・印刷両方に表示） */}
+            <MonthlyQRPanel
+              year={year} month={month} staff={staff}
+              monthly={monthlyShifts} daily={dailyShifts}
+              availability={availability}
+            />
+            {/* 出れない人リスト（印刷時のみ、portal経由） */}
             <MonthlyPrintAppendix
               year={year} month={month} staff={staff}
               monthly={monthlyShifts} daily={dailyShifts}
@@ -217,17 +215,7 @@ export default function App() {
         ))}
       </nav>
 
-      {/* モーダル */}
-      {showQR && (
-        <QRExportModal
-          year={year} month={month}
-          staff={staff}
-          monthly={monthlyShifts}
-          daily={dailyShifts}
-          availability={availability}
-          onClose={() => setShowQR(false)}
-        />
-      )}
+      {/* 出れない人リストモーダル */}
       {showAbsence && (
         <AbsenceListPrint
           year={year} month={month}
