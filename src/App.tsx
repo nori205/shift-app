@@ -17,7 +17,6 @@ import Settings from './components/Settings';
 import Onboarding from './components/Onboarding';
 import AbsenceListPrint from './components/AbsenceListPrint';
 import MonthlyPrintAppendix from './components/MonthlyPrintAppendix';
-import MonthlyQRPanel from './components/MonthlyQRPanel';
 import { autoGenerate } from './components/AutoScheduler';
 
 export default function App() {
@@ -146,21 +145,12 @@ export default function App() {
       {/* コンテンツ */}
       <main className="flex-1 overflow-hidden flex flex-col">
         {tab === 'monthly' && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* QRコード（スクロール不要の上部に固定表示） */}
-            <MonthlyQRPanel
+          <div className="flex-1 overflow-auto p-2">
+            <MonthlyGrid
               year={year} month={month} staff={staff}
-              monthly={monthlyShifts} daily={dailyShifts}
-              availability={availability}
+              shifts={monthlyShifts} holidays={holidays}
+              onCellSet={handleCellSet}
             />
-            {/* 月間シフト表（スクロール可能エリア） */}
-            <div className="flex-1 overflow-auto p-2">
-              <MonthlyGrid
-                year={year} month={month} staff={staff}
-                shifts={monthlyShifts} holidays={holidays}
-                onCellSet={handleCellSet}
-              />
-            </div>
             {/* 出れない人リスト（印刷時のみ、portal経由） */}
             <MonthlyPrintAppendix
               year={year} month={month} staff={staff}
