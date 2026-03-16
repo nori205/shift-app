@@ -29,9 +29,6 @@ function canDoLunch(avail: AvailType): boolean {
 function canDoShift17(avail: AvailType): boolean {
   return avail === '○' || avail === '夜①' || avail === '夜' || avail === '';
 }
-function canDoShift18(avail: AvailType): boolean {
-  return avail === '○' || avail === '夜②' || avail === '夜' || avail === '';
-}
 
 export function autoGenerate(
   year: number,
@@ -146,12 +143,13 @@ export function autoGenerate(
       );
       dishNight.slice(0, 1).forEach(s => shift18Workers.push(s.id));
 
-      // フレックス: ホールorキッチン1人（日番号で17時/18時を交互にしてバランス）
+      // フレックス: ホールorキッチン1人（17時以降出勤可能な人=18時にも入れる）
+      // 日番号の偶奇で17時/18時を交互に振り分けてバランス
       const flexPool = nightPool.filter(s =>
         (isFloor(s.position) || isKitchen(s.position)) &&
         !shift17Workers.includes(s.id) &&
         !shift18Workers.includes(s.id) &&
-        (day % 2 === 0 ? canDoShift17(avail(s.id)) : canDoShift18(avail(s.id)))
+        canDoShift17(avail(s.id))  // 17時以降出勤可能 → 18時にも入れる
       );
       if (flexPool.length > 0) {
         if (day % 2 === 0) shift17Workers.push(flexPool[0].id);
