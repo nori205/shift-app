@@ -107,27 +107,27 @@ export function autoGenerate(
       // 土日祝: 洗い場1 + キッチン1 + ホール3 = 5人
       // shift17: キッチン1 + ホール2  shift18: 洗い場1 + ホール1（バランス調整）
 
-      // キッチン1人（shift17固定）
+      // 全員17時から: キッチン1 + 洗い場1 + ホール3 = 5人（全員shift17）
+
+      // キッチン1人
       const kitchenNight = nightPool.filter(s =>
         isKitchen(s.position) && !isFloor(s.position) && canDoShift17(avail(s.id))
       );
       kitchenNight.slice(0, 1).forEach(s => shift17Workers.push(s.id));
 
-      // 洗い場1人（shift18）
+      // 洗い場1人
       const dishNight = nightPool.filter(s =>
         isDishwasher(s.position) && !shift17Workers.includes(s.id) && canDoShift17(avail(s.id))
       );
-      dishNight.slice(0, 1).forEach(s => shift18Workers.push(s.id));
+      dishNight.slice(0, 1).forEach(s => shift17Workers.push(s.id));
 
-      // ホール3人：2人をshift17、1人をshift18（バランス）
+      // ホール3人
       const floorNight = nightPool.filter(s =>
         isFloor(s.position) &&
         !shift17Workers.includes(s.id) &&
-        !shift18Workers.includes(s.id) &&
         canDoShift17(avail(s.id))
       );
-      floorNight.slice(0, 2).forEach(s => shift17Workers.push(s.id));
-      if (floorNight.length > 2) shift18Workers.push(floorNight[2].id);
+      floorNight.slice(0, 3).forEach(s => shift17Workers.push(s.id));
 
     } else {
       // 平日: 17時ホール1 + 18時洗い場1 + フレックス（ホールorキッチン）1
