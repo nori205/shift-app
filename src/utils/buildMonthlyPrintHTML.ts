@@ -160,42 +160,39 @@ export function buildMonthlyPrintHTML(
     </table>
   </div>
 
-  <!-- 2ページ目：補足資料 -->
+  <!-- 1ページ目続き：土日祝 夜①キッチン・洗い場担当 -->
+  ${weekendDays.length > 0 ? `
+  <div style="margin-top:10px">
+    <div class="section-title" style="color:#4338ca">土日祝　夜①（17:00〜）キッチン・洗い場担当</div>
+    <table style="border-collapse:collapse;font-size:9px;width:100%">
+      <thead>
+        <tr style="background:#e0e7ff">
+          <th style="border:1px solid #9ca3af;padding:3px 5px;width:44px;text-align:center">日付</th>
+          <th style="border:1px solid #9ca3af;padding:3px 5px;width:22px;text-align:center">曜</th>
+          <th style="border:1px solid #9ca3af;padding:3px 12px;width:45%;text-align:left">🍳 キッチン①（17:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 12px;width:45%;text-align:left">🫧 洗い場①（17:00〜）</th>
+        </tr>
+      </thead>
+      <tbody>${weekendRoleRows}</tbody>
+    </table>
+  </div>
+  ` : ''}
+
+  <!-- 2ページ目：出れない人リスト -->
   <div class="page2">
-    <div style="font-weight:bold;font-size:14px;margin-bottom:4px">${year}年${month}月　シフト補足資料</div>
-    <div style="font-size:8px;color:#6b7280;margin-bottom:10px">削=未割当　×=出勤不可　休=休日申請　★=呼び出し対象</div>
-
-    ${weekendDays.length > 0 ? `
-    <div style="margin-bottom:16px">
-      <div class="section-title" style="color:#4338ca">土日祝　夜①（17:00〜）キッチン・洗い場担当</div>
-      <table style="border-collapse:collapse;font-size:9px;width:100%">
-        <thead>
-          <tr style="background:#e0e7ff">
-            <th style="border:1px solid #9ca3af;padding:3px 5px;width:44px;text-align:center">日付</th>
-            <th style="border:1px solid #9ca3af;padding:3px 5px;width:22px;text-align:center">曜</th>
-            <th style="border:1px solid #9ca3af;padding:3px 12px;width:45%;text-align:left">🍳 キッチン①（17:00〜）</th>
-            <th style="border:1px solid #9ca3af;padding:3px 12px;width:45%;text-align:left">🫧 洗い場①（17:00〜）</th>
-          </tr>
-        </thead>
-        <tbody>${weekendRoleRows}</tbody>
-      </table>
-    </div>
-    ` : ''}
-
-    <div>
-      <div class="section-title" style="color:#b91c1c">出れない人リスト（月間）― 欠勤時の★呼び出し用</div>
-      <table style="border-collapse:collapse;font-size:9px;width:100%;table-layout:fixed">
-        <thead>
-          <tr style="background:#e5e7eb">
-            <th style="border:1px solid #9ca3af;padding:3px 4px;width:44px;text-align:center">日付</th>
-            <th style="border:1px solid #9ca3af;padding:3px 4px;width:22px;text-align:center">曜</th>
-            <th style="border:1px solid #9ca3af;padding:3px 6px;width:42%;text-align:left">削られた人（未割当）</th>
-            <th style="border:1px solid #9ca3af;padding:3px 6px;width:42%;text-align:left">★欠勤者（×/休）呼び出し対象</th>
-          </tr>
-        </thead>
-        <tbody>${absenceRows}</tbody>
-      </table>
-    </div>
+    <div style="font-weight:bold;font-size:14px;margin-bottom:4px">${year}年${month}月　出れない人リスト</div>
+    <div style="font-size:8px;color:#6b7280;margin-bottom:8px">削=未割当　×=出勤不可　休=休日申請　★欄=欠勤時の呼び出し対象</div>
+    <table style="border-collapse:collapse;font-size:9px;width:100%;table-layout:fixed">
+      <thead>
+        <tr style="background:#e5e7eb">
+          <th style="border:1px solid #9ca3af;padding:3px 4px;width:44px;text-align:center">日付</th>
+          <th style="border:1px solid #9ca3af;padding:3px 4px;width:22px;text-align:center">曜</th>
+          <th style="border:1px solid #9ca3af;padding:3px 6px;width:42%;text-align:left">削られた人（未割当）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 6px;width:42%;text-align:left">★欠勤者（×/休）呼び出し対象</th>
+        </tr>
+      </thead>
+      <tbody>${absenceRows}</tbody>
+    </table>
   </div>
 </body>
 </html>`;
