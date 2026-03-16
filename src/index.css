@@ -28,9 +28,11 @@ body {
   /* モーダル印刷モードでない通常印刷時：modal-rootのモーダル背景等を隠す */
   body:not(.print-modal) #modal-root > .fixed { display: none !important; }
 
-  /* 印刷専用コンテンツを表示 */
+  /* 印刷専用コンテンツを表示（必ず新しいページから開始） */
   .print-only {
     display: block !important;
+    page-break-before: always !important;
+    break-before: page !important;
   }
 
   /* overflow クリッピングを解除してコンテンツが切れないようにする */

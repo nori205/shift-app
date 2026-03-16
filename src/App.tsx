@@ -18,6 +18,7 @@ import Onboarding from './components/Onboarding';
 import AbsenceListPrint from './components/AbsenceListPrint';
 import MonthlyPrintAppendix from './components/MonthlyPrintAppendix';
 import { autoGenerate } from './components/AutoScheduler';
+import { buildMonthlyPrintHTML } from './utils/buildMonthlyPrintHTML';
 
 export default function App() {
   const now = new Date();
@@ -152,7 +153,20 @@ export default function App() {
           <button className="p-1 hover:bg-indigo-600 rounded" onClick={prevMonth}>◀</button>
           <span className="font-medium min-w-[80px] text-center">{year}年{month}月</span>
           <button className="p-1 hover:bg-indigo-600 rounded" onClick={nextMonth}>▶</button>
-          {(tab === 'monthly' || tab === 'daily') && (
+          {tab === 'monthly' && (
+            <button
+              className="bg-white text-indigo-700 text-xs px-2.5 py-1 rounded-full font-medium"
+              onClick={() => {
+                const html = buildMonthlyPrintHTML(year, month, staff, monthlyShifts, dailyShifts, availability, holidays);
+                const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+              }}
+            >
+              印刷
+            </button>
+          )}
+          {tab === 'daily' && (
             <button
               className="bg-white text-indigo-700 text-xs px-2.5 py-1 rounded-full font-medium"
               onClick={() => window.print()}
