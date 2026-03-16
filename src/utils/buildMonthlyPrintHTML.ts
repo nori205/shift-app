@@ -131,11 +131,13 @@ export function buildMonthlyPrintHTML(
   <title>${year}年${month}月 シフト表</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 12px; font-size: 9px; color: #374151; }
-    .print-btn { display: block; margin: 0 auto 14px; padding: 10px 32px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: bold; }
+    .print-btn { display: block; margin: 0 auto 8px; padding: 12px 40px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; }
+    .ios-hint { text-align: center; font-size: 11px; color: #6b7280; margin: 0 0 14px; }
     .section-title { font-weight: bold; font-size: 11px; border-bottom: 2px solid currentColor; padding-bottom: 2px; margin-bottom: 6px; }
     .page2 { margin-top: 24px; }
     @media print {
       .print-btn { display: none !important; }
+      .ios-hint { display: none !important; }
       @page { size: A4 landscape; margin: 8mm; }
       .page2 { page-break-before: always; break-before: page; margin-top: 0; }
       body { padding: 0; }
@@ -144,6 +146,7 @@ export function buildMonthlyPrintHTML(
 </head>
 <body>
   <button class="print-btn" onclick="window.print()">🖨️ 印刷</button>
+  <p class="ios-hint">iPhoneの場合：このボタンを押す、または 共有（□↑）→「プリント」</p>
 
   <!-- 1ページ目：月間シフト表 -->
   <div style="font-weight:bold;font-size:13px;margin-bottom:6px">${year}年${month}月　シフト表</div>

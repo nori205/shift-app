@@ -160,7 +160,12 @@ export default function App() {
                 const html = buildMonthlyPrintHTML(year, month, staff, monthlyShifts, dailyShifts, availability, holidays);
                 const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
+                const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+                if (isIOS) {
+                  window.location.href = url;
+                } else {
+                  window.open(url, '_blank');
+                }
               }}
             >
               印刷
