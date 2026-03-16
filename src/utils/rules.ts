@@ -36,11 +36,12 @@ export function canWork17(pos: Position): boolean {
   return canWorkNight(pos);
 }
 
-// 18時枠はホール・外回り系のみ
+// 18時枠はホール・外回り系 + 洗い場（夜）
 export function canWork18(pos: Position): boolean {
   return [
     'kitchen_floor_night', 'kitchen_floor_both',
     'floor_night', 'floor_both',
+    'dishwasher_night',
   ].includes(pos);
 }
 
@@ -63,31 +64,13 @@ export function isDishwasher(pos: Position): boolean {
 }
 
 export interface DayRequirement {
-  lunch_kitchen_min: number;
-  lunch_kitchen_max: number;
-  lunch_floor_min: number;
-  lunch_floor_max: number;
-  lunch_dish: number;
-  shift17: number;
-  shift18: number;
+  lunch_floor: number;   // 昼ホール人数
+  lunch_dish: number;    // 昼洗い場人数（常に1）
 }
 
 export function getRequirement(isWeekend: boolean): DayRequirement {
-  if (isWeekend) {
-    return {
-      lunch_kitchen_min: 2, lunch_kitchen_max: 2,
-      lunch_floor_min: 2, lunch_floor_max: 2,
-      lunch_dish: 1,
-      shift17: 5,
-      shift18: 0,
-    };
-  } else {
-    return {
-      lunch_kitchen_min: 1, lunch_kitchen_max: 2,
-      lunch_floor_min: 1, lunch_floor_max: 2,
-      lunch_dish: 1,
-      shift17: 1,
-      shift18: 2,
-    };
-  }
+  return {
+    lunch_floor: isWeekend ? 3 : 2,
+    lunch_dish: 1,
+  };
 }

@@ -32,9 +32,12 @@ function canWork(slot: Slot, pos: Staff['position']): boolean {
 }
 
 function slotRequired(slot: Slot, isWE: boolean): number {
-  if (slot === 'lunch') return isWE ? 5 : 3;
-  if (slot === 'shift17') return isWE ? 5 : 1;
-  return isWE ? 0 : 2;
+  // 昼: 洗い場1 + ホール(平日2・土日祝3)
+  if (slot === 'lunch') return isWE ? 4 : 3;
+  // 夜①: 土日祝キッチン1+ホール2=3、平日ホール1
+  if (slot === 'shift17') return isWE ? 3 : 1;
+  // 夜②: 土日祝洗い場1+ホール1=2、平日洗い場1+フレックス1=2
+  return 2;
 }
 
 export default function DailyView({ year, month, staff, shifts, holidays, monthly, availability, onUpdate }: Props) {
@@ -123,8 +126,8 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isWE ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
           {isWE ? '土日祝' : '平日'}
         </span>
-        {isWE  && <span className="text-xs text-gray-500">夜①5人・夜②不要</span>}
-        {!isWE && <span className="text-xs text-gray-500">夜①1人・夜②2人</span>}
+        {isWE  && <span className="text-xs text-gray-500">夜①厨1+ホ2・夜②洗1+ホ1（計5人）</span>}
+        {!isWE && <span className="text-xs text-gray-500">夜①ホール1・夜②洗い場1+追加1</span>}
       </div>
 
       {/* スロット一覧 */}
@@ -132,7 +135,7 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
         {slotDefs.map(({ slot, label, sublabel, border, hdr }) => {
           const members = inSlot(slot);
           const req = slotRequired(slot, isWE);
-          const notNeeded = isWE && slot === 'shift18';
+          const notNeeded = false;
           const ok = notNeeded || members.length >= req;
 
           const eligibleNotAssigned = staff.filter(s => canWork(slot, s.position) && !members.includes(s.id));

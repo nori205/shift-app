@@ -1,7 +1,7 @@
 import type { Staff, MonthlyShifts, DailyShifts, DayShift, HolidaySet, StaffAvailability, AvailType, ShiftType } from '../types';
 import {
-  canWorkLunch, canWorkNight, canWork18,
-  isKitchen, isFloor, getRequirement,
+  canWorkLunch, canWorkNight,
+  isKitchen, isFloor, isDishwasher, getRequirement,
 } from '../utils/rules';
 
 function daysInMonth(year: number, month: number) { return new Date(year, month, 0).getDate(); }
@@ -82,66 +82,80 @@ export function autoGenerate(
     const shift18Workers: string[] = [];
 
     // --- 昼シフト ---
-    // 1. 昼洗い場
+    // 1. 昼洗い場（dishwasher_day）
     const dishDay = available.filter(s =>
-      s.position === 'dishwasher_day' && canWorkLunch(s.position) && canDoLunch(avail(s.id))
+      isDishwasher(s.position) && canWorkLunch(s.position) && canDoLunch(avail(s.id))
     );
     if (dishDay.length > 0) lunchWorkers.push(dishDay[0].id);
 
-    // 2. 昼・中（kitchen）
-    const kitchenLunch = available.filter(s =>
-      !lunchWorkers.includes(s.id) &&
-      canWorkLunch(s.position) && isKitchen(s.position) &&
-      canDoLunch(avail(s.id))
-    );
-    const kitchenTarget = isWE ? req.lunch_kitchen_min : req.lunch_kitchen_min;
-    for (let i = 0; i < Math.min(kitchenTarget, kitchenLunch.length); i++) {
-      lunchWorkers.push(kitchenLunch[i].id);
-    }
-
-    // 3. 昼・外（floor）
+    // 2. 昼ホール（floor / kitchen_floor）: 平日2人・土日祝3人
     const floorLunch = available.filter(s =>
       !lunchWorkers.includes(s.id) &&
       canWorkLunch(s.position) && isFloor(s.position) &&
       canDoLunch(avail(s.id))
     );
-    const floorTarget = isWE ? req.lunch_floor_min : req.lunch_floor_min;
-    for (let i = 0; i < Math.min(floorTarget, floorLunch.length); i++) {
+    for (let i = 0; i < Math.min(req.lunch_floor, floorLunch.length); i++) {
       lunchWorkers.push(floorLunch[i].id);
     }
 
     // --- 夜シフト ---
+    const nightPool = available.filter(s =>
+      !lunchWorkers.includes(s.id) && canWorkNight(s.position)
+    );
+
     if (isWE) {
-      // 土日祝：17時から5人
-      const nightAvail = available.filter(s =>
-        !lunchWorkers.includes(s.id) &&
-        canWorkNight(s.position) &&
-        canDoShift17(avail(s.id))
-      );
-      shuffle(nightAvail).slice(0, req.shift17).forEach(s => shift17Workers.push(s.id));
-    } else {
-      // 平日：17時1人、18時2人
-      const avail17 = available.filter(s =>
-        !lunchWorkers.includes(s.id) &&
-        canWorkNight(s.position) &&
-        canDoShift17(avail(s.id))
-      );
-      avail17.slice(0, req.shift17).forEach(s => shift17Workers.push(s.id));
+      // 土日祝: 洗い場1 + キッチン1 + ホール3 = 5人
+      // shift17: キッチン1 + ホール2  shift18: 洗い場1 + ホール1（バランス調整）
 
-      const avail18 = available.filter(s =>
-        !lunchWorkers.includes(s.id) &&
+      // キッチン1人（shift17固定）
+      const kitchenNight = nightPool.filter(s =>
+        isKitchen(s.position) && !isFloor(s.position) && canDoShift17(avail(s.id))
+      );
+      kitchenNight.slice(0, 1).forEach(s => shift17Workers.push(s.id));
+
+      // 洗い場1人（shift18）
+      const dishNight = nightPool.filter(s =>
+        isDishwasher(s.position) && !shift17Workers.includes(s.id) && canDoShift17(avail(s.id))
+      );
+      dishNight.slice(0, 1).forEach(s => shift18Workers.push(s.id));
+
+      // ホール3人：2人をshift17、1人をshift18（バランス）
+      const floorNight = nightPool.filter(s =>
+        isFloor(s.position) &&
         !shift17Workers.includes(s.id) &&
-        canWork18(s.position) &&
-        canDoShift18(avail(s.id))
+        !shift18Workers.includes(s.id) &&
+        canDoShift17(avail(s.id))
       );
-      avail18.slice(0, req.shift18).forEach(s => shift18Workers.push(s.id));
-    }
+      floorNight.slice(0, 2).forEach(s => shift17Workers.push(s.id));
+      if (floorNight.length > 2) shift18Workers.push(floorNight[2].id);
 
-    // 夜洗い場（dishwasher_night）
-    const dishNight = staff.find(s => s.position === 'dishwasher_night');
-    if (dishNight && canWorkToday(dishNight) && canDoShift17(avail(dishNight.id))) {
-      if (!shift17Workers.includes(dishNight.id) && !shift18Workers.includes(dishNight.id)) {
-        shift17Workers.push(dishNight.id);
+    } else {
+      // 平日: 17時ホール1 + 18時洗い場1 + フレックス（ホールorキッチン）1
+
+      // 17時ホール1
+      const floorNight17 = nightPool.filter(s =>
+        isFloor(s.position) && canDoShift17(avail(s.id))
+      );
+      floorNight17.slice(0, 1).forEach(s => shift17Workers.push(s.id));
+
+      // 18時洗い場1
+      const dishNight = nightPool.filter(s =>
+        isDishwasher(s.position) &&
+        !shift17Workers.includes(s.id) &&
+        canDoShift17(avail(s.id))
+      );
+      dishNight.slice(0, 1).forEach(s => shift18Workers.push(s.id));
+
+      // フレックス: ホールorキッチン1人（日番号で17時/18時を交互にしてバランス）
+      const flexPool = nightPool.filter(s =>
+        (isFloor(s.position) || isKitchen(s.position)) &&
+        !shift17Workers.includes(s.id) &&
+        !shift18Workers.includes(s.id) &&
+        (day % 2 === 0 ? canDoShift17(avail(s.id)) : canDoShift18(avail(s.id)))
+      );
+      if (flexPool.length > 0) {
+        if (day % 2 === 0) shift17Workers.push(flexPool[0].id);
+        else shift18Workers.push(flexPool[0].id);
       }
     }
 
