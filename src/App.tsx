@@ -89,6 +89,39 @@ export default function App() {
     alert('自動生成が完了しました！月表タブで確認してください。');
   }
 
+  // 新規スタッフのみ既存シフトに追加（既存スタッフのシフトは保持）
+  function handleAddNewStaffShifts() {
+    const existingIds = new Set(Object.keys(monthlyShifts));
+    const newStaffList = staff.filter(s => !existingIds.has(s.id));
+    if (newStaffList.length === 0) {
+      alert('新しく追加されたスタッフはいません。\n全員を再生成するには「自動生成（全員・上書き）」を使ってください。');
+      return;
+    }
+    if (!confirm(`${newStaffList.map(s => s.name).join('、')} を既存シフトに追加生成します。よろしいですか？`)) return;
+    const result = autoGenerate(year, month, staff, availability, holidays);
+    const newStaffIds = new Set(newStaffList.map(s => s.id));
+    // monthlyに新規スタッフ分のみ追加
+    const newMonthly = { ...monthlyShifts };
+    for (const s of newStaffList) {
+      newMonthly[s.id] = result.monthly[s.id] || {};
+    }
+    updateMonthly(newMonthly);
+    // dailyの各日に新規スタッフを追加
+    const newDaily = { ...dailyShifts };
+    for (const [dateKey, shift] of Object.entries(result.daily)) {
+      const existing = dailyShifts[dateKey] || { lunch: [], shift17: [], shift18: [] };
+      newDaily[dateKey] = {
+        ...existing,
+        lunch:   [...existing.lunch,   ...shift.lunch.filter(id => newStaffIds.has(id))],
+        shift17: [...existing.shift17, ...shift.shift17.filter(id => newStaffIds.has(id))],
+        shift18: [...existing.shift18, ...shift.shift18.filter(id => newStaffIds.has(id))],
+      };
+    }
+    updateDaily(newDaily);
+    setTab('monthly');
+    alert(`${newStaffList.map(s => s.name).join('、')} のシフトを追加しました！`);
+  }
+
   function prevMonth() {
     if (month === 1) { setYear(y => y - 1); setMonth(12); }
     else setMonth(m => m - 1);
@@ -186,6 +219,8 @@ export default function App() {
               holidays={holidays} onHolidaysUpdate={updateHolidays}
               year={year} month={month}
               onAutoGenerate={handleAutoGenerate}
+              onAddNewStaff={handleAddNewStaffShifts}
+              hasNewStaff={staff.some(s => !monthlyShifts[s.id])}
             />
           </div>
         )}

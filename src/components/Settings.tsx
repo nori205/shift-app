@@ -7,9 +7,11 @@ interface Props {
   year: number;
   month: number;
   onAutoGenerate: () => void;
+  onAddNewStaff: () => void;
+  hasNewStaff: boolean;
 }
 
-export default function Settings({ holidays, onHolidaysUpdate, year, month, onAutoGenerate }: Props) {
+export default function Settings({ holidays, onHolidaysUpdate, year, month, onAutoGenerate, onAddNewStaff, hasNewStaff }: Props) {
   const [dateInput, setDateInput] = useState('');
 
   function toggleHoliday() {
@@ -33,11 +35,22 @@ export default function Settings({ holidays, onHolidaysUpdate, year, month, onAu
           「希望」タブの入力内容をもとに{year}年{month}月のシフト案を作ります。
         </p>
         <button
-          className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-base"
+          className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-base mb-2"
           onClick={onAutoGenerate}
         >
-          🗓️ {month}月のシフトを自動生成
+          🗓️ {month}月のシフトを自動生成（全員・上書き）
         </button>
+        {hasNewStaff && (
+          <button
+            className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-sm"
+            onClick={onAddNewStaff}
+          >
+            ➕ 新規スタッフのみ追加生成（既存シフト保持）
+          </button>
+        )}
+        {!hasNewStaff && (
+          <p className="text-xs text-indigo-400 text-center">新規スタッフがいる場合は追加生成ボタンが表示されます</p>
+        )}
       </div>
 
       {/* 祝日設定 */}
