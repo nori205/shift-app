@@ -29,6 +29,8 @@ export interface DayShift {
   shift17: string[];
   shift18: string[];
   notes?: string;
+  kitchen17?: string;    // 土日祝 夜①キッチン担当（スタッフID）
+  dishwasher17?: string; // 土日祝 夜①洗い場担当（スタッフID）
 }
 
 export type MonthlyShifts = Record<string, Record<number, ShiftType>>;

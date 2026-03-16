@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Staff, DailyShifts, DayShift, HolidaySet, MonthlyShifts, StaffAvailability } from '../types';
-import { canWorkLunch, canWorkNight, canWork18 } from '../utils/rules';
+import { canWorkLunch, canWorkNight, canWork18, isKitchen, isDishwasher } from '../utils/rules';
 
 interface Props {
   year: number;
@@ -229,6 +229,49 @@ export default function DailyView({ year, month, staff, shifts, holidays, monthl
                   })}
                 </div>
               </div>
+
+              {/* 土日祝 夜①役割割当 */}
+              {isWE && slot === 'shift17' && (
+                <div className="px-3 py-2.5 border-t border-indigo-100 bg-indigo-50/40">
+                  <p className="text-[10px] font-bold text-indigo-700 mb-2">役割割当（土日祝）</p>
+                  <div className="flex gap-4 flex-wrap">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-gray-600">🍳 キッチン</label>
+                      <select
+                        className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white"
+                        value={currentShift.kitchen17 ?? ''}
+                        onChange={e => {
+                          const newShift: DayShift = { ...currentShift, kitchen17: e.target.value || undefined };
+                          setLocalShifts(prev => ({ ...prev, [dateKey]: newShift }));
+                          onUpdate(dateKey, newShift);
+                        }}
+                      >
+                        <option value="">— 未設定 —</option>
+                        {staff.filter(s => isKitchen(s.position) && canWorkNight(s.position)).map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-gray-600">🫧 洗い場</label>
+                      <select
+                        className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white"
+                        value={currentShift.dishwasher17 ?? ''}
+                        onChange={e => {
+                          const newShift: DayShift = { ...currentShift, dishwasher17: e.target.value || undefined };
+                          setLocalShifts(prev => ({ ...prev, [dateKey]: newShift }));
+                          onUpdate(dateKey, newShift);
+                        }}
+                      >
+                        <option value="">— 未設定 —</option>
+                        {staff.filter(s => isDishwasher(s.position)).map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 穴埋め（ポジション外） */}
               {outOfPos.length > 0 && (
