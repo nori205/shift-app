@@ -100,23 +100,29 @@ export function autoGenerate(
       !lunchWorkers.includes(s.id) && canWorkNight(s.position)
     );
 
-    if (isWE) {
-      // 土日祝: 洗い場1 + キッチン1 + ホール3 = 5人
-      // shift17: キッチン1 + ホール2  shift18: 洗い場1 + ホール1（バランス調整）
+    let kitchen17Id: string | undefined;
+    let dishwasher17Id: string | undefined;
 
-      // 全員17時から: キッチン1 + 洗い場1 + ホール3 = 5人（全員shift17）
+    if (isWE) {
+      // 土日祝: 全員17時から キッチン1 + 洗い場1 + ホール3 = 5人（全員shift17）
 
       // キッチン1人
       const kitchenNight = nightPool.filter(s =>
         isKitchen(s.position) && !isFloor(s.position) && canDoShift17(avail(s.id))
       );
-      kitchenNight.slice(0, 1).forEach(s => shift17Workers.push(s.id));
+      if (kitchenNight.length > 0) {
+        shift17Workers.push(kitchenNight[0].id);
+        kitchen17Id = kitchenNight[0].id;
+      }
 
       // 洗い場1人
       const dishNight = nightPool.filter(s =>
         isDishwasher(s.position) && !shift17Workers.includes(s.id) && canDoShift17(avail(s.id))
       );
-      dishNight.slice(0, 1).forEach(s => shift17Workers.push(s.id));
+      if (dishNight.length > 0) {
+        shift17Workers.push(dishNight[0].id);
+        dishwasher17Id = dishNight[0].id;
+      }
 
       // ホール3人
       const floorNight = nightPool.filter(s =>
@@ -157,8 +163,14 @@ export function autoGenerate(
       }
     }
 
-    // 日次シフトに書き込み
-    daily[dateKey] = { lunch: lunchWorkers, shift17: shift17Workers, shift18: shift18Workers } satisfies DayShift;
+    // 日次シフトに書き込み（土日祝はkitchen17/dishwasher17も設定）
+    daily[dateKey] = {
+      lunch: lunchWorkers,
+      shift17: shift17Workers,
+      shift18: shift18Workers,
+      ...(kitchen17Id    ? { kitchen17: kitchen17Id }    : {}),
+      ...(dishwasher17Id ? { dishwasher17: dishwasher17Id } : {}),
+    } satisfies DayShift;
 
     // 月次グリッドに反映（希望値がある場合はそれを優先表示）
     for (const s of staff) {

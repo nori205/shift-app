@@ -134,10 +134,12 @@ export function buildMonthlyPrintHTML(
     .print-btn { display: block; margin: 0 auto 8px; padding: 12px 40px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; }
     .ios-hint { text-align: center; font-size: 11px; color: #6b7280; margin: 0 0 14px; }
     .section-title { font-weight: bold; font-size: 11px; border-bottom: 2px solid currentColor; padding-bottom: 2px; margin-bottom: 6px; }
-    .page2 { margin-top: 24px; }
+    .page2 { margin-top: 16px; }
+    .page-break-line { text-align: center; font-size: 11px; color: #9ca3af; border-top: 2px dashed #d1d5db; padding-top: 6px; margin-top: 20px; }
     @media print {
       .print-btn { display: none !important; }
       .ios-hint { display: none !important; }
+      .page-break-line { display: none !important; }
       @page { size: A4 landscape; margin: 8mm; }
       .page2 { page-break-before: always; break-before: page; margin-top: 0; }
       body { padding: 0; }
@@ -182,6 +184,7 @@ export function buildMonthlyPrintHTML(
   ` : ''}
 
   <!-- 2ページ目：出れない人リスト -->
+  <div class="page-break-line">― ここから 2ページ目（印刷時は改ページ）―</div>
   <div class="page2">
     <div style="font-weight:bold;font-size:14px;margin-bottom:4px">${year}年${month}月　出れない人リスト</div>
     <div style="font-size:8px;color:#6b7280;margin-bottom:8px">削=未割当　×=出勤不可　休=休日申請　★欄=欠勤時の呼び出し対象</div>
