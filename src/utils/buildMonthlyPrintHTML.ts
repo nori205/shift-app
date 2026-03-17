@@ -160,11 +160,17 @@ export function buildMonthlyPrintHTML(
           if (names.length > 0) roles.push({ slot, role: roleLabels[role], names });
         }
       }
-    } else if (ds && (ds.lunch.length > 0 || ds.shift17.length > 0 || ds.shift18.length > 0)) {
-      // ── パターンB: daily データから「アサインなし＆出勤可能」スタッフを導出 ──
-      const assigned = new Set([...ds.lunch, ...ds.shift17, ...ds.shift18]);
+    } else {
+      // ── パターンB: daily + monthly から「アサインなし＆出勤可能」スタッフを導出 ──
+      // daily がない日も monthly で出勤済みスタッフを除外して補欠を特定する
+      const assigned = ds
+        ? new Set([...(ds.lunch ?? []), ...(ds.shift17 ?? []), ...(ds.shift18 ?? [])])
+        : new Set<string>();
       const subs = staff.filter(s => {
         if (assigned.has(s.id)) return false;
+        // monthly で実際に出勤扱いになっているスタッフは除外
+        const shiftVal = monthly[s.id]?.[d] ?? '';
+        if (WORK_VALUES.includes(shiftVal)) return false;
         const av = availability[s.id]?.[d] ?? '';
         if (av === '×') return false;
         const allowed = s.availableDays;

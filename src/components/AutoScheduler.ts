@@ -85,12 +85,19 @@ export function autoGenerate(
     );
     if (dishDay.length > 0) lunchWorkers.push(dishDay[0].id);
 
-    // 2. 昼ホール（floor / kitchen_floor）: 平日2人・土日祝3人
-    const floorLunch = available.filter(s =>
+    // 2. 昼ホール: 平日2人・土日祝3人
+    // 土日祝は純ホール（非キッチン）を優先し、kitchen_floor系を夜①キッチン用に温存する
+    const floorLunchAll = available.filter(s =>
       !lunchWorkers.includes(s.id) &&
       canWorkLunch(s.position) && isFloor(s.position) &&
       canDoLunch(avail(s.id))
     );
+    const floorLunch = isWE
+      ? [
+          ...floorLunchAll.filter(s => !isKitchen(s.position)), // 純ホール優先
+          ...floorLunchAll.filter(s =>  isKitchen(s.position)), // 不足時のみkitchen_floor使用
+        ]
+      : floorLunchAll;
     for (let i = 0; i < Math.min(req.lunch_floor, floorLunch.length); i++) {
       lunchWorkers.push(floorLunch[i].id);
     }
