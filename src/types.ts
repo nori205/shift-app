@@ -24,6 +24,12 @@ export type AvailType = '○' | '昼' | '夜①' | '夜②' | '夜' | '×' | '';
 
 export type StaffAvailability = Record<string, Record<number, AvailType>>;
 
+export interface ExcludedCandidate {
+  staffId: string;
+  timeSlot: '昼' | '夜①';
+  role: 'ホール' | 'キッチン' | '洗い場';
+}
+
 export interface DayShift {
   lunch: string[];
   shift17: string[];
@@ -31,6 +37,7 @@ export interface DayShift {
   notes?: string;
   kitchen17?: string;    // 土日祝 夜①キッチン担当（スタッフID）
   dishwasher17?: string; // 土日祝 夜①洗い場担当（スタッフID）
+  excluded?: ExcludedCandidate[]; // 候補に入ったが外れたスタッフ
 }
 
 export type MonthlyShifts = Record<string, Record<number, ShiftType>>;

@@ -1,4 +1,4 @@
-import type { Staff, MonthlyShifts, DailyShifts, DayShift, HolidaySet, StaffAvailability, AvailType, ShiftType } from '../types';
+import type { Staff, MonthlyShifts, DailyShifts, DayShift, HolidaySet, StaffAvailability, AvailType, ShiftType, ExcludedCandidate } from '../types';
 import {
   canWorkLunch, canWorkNight,
   isKitchen, isFloor, isDishwasher, getRequirement,
@@ -102,6 +102,12 @@ export function autoGenerate(
 
     let kitchen17Id: string | undefined;
     let dishwasher17Id: string | undefined;
+    const excluded: ExcludedCandidate[] = [];
+
+    // 昼 補欠記録：昼洗い場で外れた人
+    dishDay.slice(1).forEach(s => excluded.push({ staffId: s.id, timeSlot: '昼', role: '洗い場' }));
+    // 昼 補欠記録：昼ホールで外れた人
+    floorLunch.slice(req.lunch_floor).forEach(s => excluded.push({ staffId: s.id, timeSlot: '昼', role: 'ホール' }));
 
     if (isWE) {
       // 土日祝: 全員17時から キッチン1 + 洗い場1 + ホール3 = 5人（全員shift17）
@@ -113,6 +119,8 @@ export function autoGenerate(
       if (kitchenNight.length > 0) {
         shift17Workers.push(kitchenNight[0].id);
         kitchen17Id = kitchenNight[0].id;
+        // キッチン補欠
+        kitchenNight.slice(1).forEach(s => excluded.push({ staffId: s.id, timeSlot: '夜①', role: 'キッチン' }));
       }
 
       // 洗い場1人
@@ -122,6 +130,8 @@ export function autoGenerate(
       if (dishNight.length > 0) {
         shift17Workers.push(dishNight[0].id);
         dishwasher17Id = dishNight[0].id;
+        // 洗い場補欠
+        dishNight.slice(1).forEach(s => excluded.push({ staffId: s.id, timeSlot: '夜①', role: '洗い場' }));
       }
 
       // ホール3人
@@ -131,6 +141,8 @@ export function autoGenerate(
         canDoShift17(avail(s.id))
       );
       floorNight.slice(0, 3).forEach(s => shift17Workers.push(s.id));
+      // ホール補欠
+      floorNight.slice(3).forEach(s => excluded.push({ staffId: s.id, timeSlot: '夜①', role: 'ホール' }));
 
     } else {
       // 平日: 17時ホール1 + 18時洗い場1 + フレックス（ホールorキッチン）1
@@ -140,6 +152,7 @@ export function autoGenerate(
         isFloor(s.position) && canDoShift17(avail(s.id))
       );
       floorNight17.slice(0, 1).forEach(s => shift17Workers.push(s.id));
+      floorNight17.slice(1).forEach(s => excluded.push({ staffId: s.id, timeSlot: '夜①', role: 'ホール' }));
 
       // 18時洗い場1
       const dishNight = nightPool.filter(s =>
@@ -148,6 +161,7 @@ export function autoGenerate(
         canDoShift17(avail(s.id))
       );
       dishNight.slice(0, 1).forEach(s => shift18Workers.push(s.id));
+      dishNight.slice(1).forEach(s => excluded.push({ staffId: s.id, timeSlot: '夜①', role: '洗い場' }));
 
       // フレックス: ホールorキッチン1人（17時以降出勤可能な人=18時にも入れる）
       // 日番号の偶奇で17時/18時を交互に振り分けてバランス
@@ -160,6 +174,8 @@ export function autoGenerate(
       if (flexPool.length > 0) {
         if (day % 2 === 0) shift17Workers.push(flexPool[0].id);
         else shift18Workers.push(flexPool[0].id);
+        // フレックス補欠
+        flexPool.slice(1).forEach(s => excluded.push({ staffId: s.id, timeSlot: '夜①', role: isKitchen(s.position) ? 'キッチン' : 'ホール' }));
       }
     }
 
@@ -170,6 +186,7 @@ export function autoGenerate(
       shift18: shift18Workers,
       ...(kitchen17Id    ? { kitchen17: kitchen17Id }    : {}),
       ...(dishwasher17Id ? { dishwasher17: dishwasher17Id } : {}),
+      ...(excluded.length > 0 ? { excluded } : {}),
     } satisfies DayShift;
 
     // 月次グリッドに反映（希望値がある場合はそれを優先表示）

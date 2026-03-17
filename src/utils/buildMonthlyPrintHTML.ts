@@ -128,7 +128,8 @@ export function buildMonthlyPrintHTML(
   }
 
   // ── 2ページ目：補欠候補リスト ──
-  // アサインされていないが出勤可能なスタッフを役割別に列挙する
+  // AutoScheduler の excluded データを優先し、なければ「未割当＆出勤可能」から導出
+  type RoleRow = { slot: string; role: string; names: string[] };
   let substituteRows = '';
 
   for (const d of dayArr) {
@@ -137,34 +138,47 @@ export function buildMonthlyPrintHTML(
     const dk = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const ds = daily[dk];
 
-    // この日にアサイン済みのスタッフID一覧
-    const assigned = new Set([
-      ...(ds?.lunch    ?? []),
-      ...(ds?.shift17  ?? []),
-      ...(ds?.shift18  ?? []),
-    ]);
+    let roles: RoleRow[] = [];
 
-    // 出勤可能だがアサインされていないスタッフ
-    const subs = staff.filter(s => {
-      if (assigned.has(s.id)) return false;
-      const av = availability[s.id]?.[d] ?? '';
-      if (av === '×') return false;
-      const allowed = s.availableDays;
-      if (allowed && allowed.length > 0 && !allowed.includes(dow)) return false;
-      return true;
-    });
-
-    if (subs.length === 0) continue;
-
-    // 役割別に分類
-    type RoleRow = { slot: string; role: string; names: string[] };
-    const roles: RoleRow[] = [
-      { slot: '昼',  role: '🛎️ ホール',   names: subs.filter(s => isFloor(s.position) && canWorkLunch(s.position)).map(s => s.name) },
-      { slot: '昼',  role: '🫧 洗い場', names: subs.filter(s => isDishwasher(s.position) && canWorkLunch(s.position)).map(s => s.name) },
-      { slot: '夜',  role: '🛎️ ホール',   names: subs.filter(s => isFloor(s.position) && canWorkNight(s.position)).map(s => s.name) },
-      { slot: '夜',  role: '🍳 キッチン', names: subs.filter(s => isKitchen(s.position) && canWorkNight(s.position)).map(s => s.name) },
-      { slot: '夜',  role: '🫧 洗い場', names: subs.filter(s => isDishwasher(s.position) && canWorkNight(s.position)).map(s => s.name) },
-    ].filter(r => r.names.length > 0);
+    if (ds?.excluded && ds.excluded.length > 0) {
+      // ── パターンA: AutoScheduler が記録した excluded を使用 ──
+      const roleOrder = ['昼', '夜①'] as const;
+      const roleLabels: Record<string, string> = { 'ホール': '🛎️ ホール', 'キッチン': '🍳 キッチン', '洗い場': '🫧 洗い場' };
+      const map = new Map<string, string[]>();
+      for (const ec of ds.excluded) {
+        const key = `${ec.timeSlot}__${ec.role}`;
+        const name = staffById.get(ec.staffId)?.name;
+        if (name) {
+          if (!map.has(key)) map.set(key, []);
+          map.get(key)!.push(name);
+        }
+      }
+      for (const slot of roleOrder) {
+        for (const role of ['ホール', 'キッチン', '洗い場'] as const) {
+          const key = `${slot}__${role}`;
+          const names = map.get(key) ?? [];
+          if (names.length > 0) roles.push({ slot, role: roleLabels[role], names });
+        }
+      }
+    } else if (ds && (ds.lunch.length > 0 || ds.shift17.length > 0 || ds.shift18.length > 0)) {
+      // ── パターンB: daily データから「アサインなし＆出勤可能」スタッフを導出 ──
+      const assigned = new Set([...ds.lunch, ...ds.shift17, ...ds.shift18]);
+      const subs = staff.filter(s => {
+        if (assigned.has(s.id)) return false;
+        const av = availability[s.id]?.[d] ?? '';
+        if (av === '×') return false;
+        const allowed = s.availableDays;
+        if (allowed && allowed.length > 0 && !allowed.includes(dow)) return false;
+        return true;
+      });
+      roles = [
+        { slot: '昼',  role: '🛎️ ホール',   names: subs.filter(s => isFloor(s.position) && canWorkLunch(s.position)).map(s => s.name) },
+        { slot: '昼',  role: '🫧 洗い場',  names: subs.filter(s => isDishwasher(s.position) && canWorkLunch(s.position)).map(s => s.name) },
+        { slot: '夜①', role: '🛎️ ホール',   names: subs.filter(s => isFloor(s.position) && canWorkNight(s.position)).map(s => s.name) },
+        { slot: '夜①', role: '🍳 キッチン', names: subs.filter(s => isKitchen(s.position) && canWorkNight(s.position)).map(s => s.name) },
+        { slot: '夜①', role: '🫧 洗い場',  names: subs.filter(s => isDishwasher(s.position) && canWorkNight(s.position)).map(s => s.name) },
+      ].filter(r => r.names.length > 0);
+    }
 
     if (roles.length === 0) continue;
 
