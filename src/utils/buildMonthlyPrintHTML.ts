@@ -90,13 +90,18 @@ export function buildMonthlyPrintHTML(
   const weekendDays = dayArr.filter(d =>  isHolidayFn(year, month, d, holidays));
   const weekdayDays  = dayArr.filter(d => !isHolidayFn(year, month, d, holidays));
 
-  // 【土日祝】夜①行：ホール×3 / 洗い場×1 / キッチン×1
+  // 【土日祝】昼＋夜①行：昼ホール / 昼洗い場 / 夜①ホール / 夜①洗い場 / 夜①キッチン
   let weekendNightRows = '';
   for (const d of weekendDays) {
     const dow = getDow(year, month, d);
     const dk = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const ds = daily[dk];
+    const lunchIds   = ds?.lunch   ?? [];
     const shift17Ids = ds?.shift17 ?? [];
+
+    // 昼
+    const lFloor = lunchIds.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isFloor(s.position)).map(s => s.name);
+    const lDish  = lunchIds.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isDishwasher(s.position)).map(s => s.name);
 
     // キッチン担当: kitchen17 優先 → なければ shift17 からキッチン系を探す
     const kitchenId = ds?.kitchen17
@@ -104,7 +109,7 @@ export function buildMonthlyPrintHTML(
     // 洗い場担当: dishwasher17 優先 → なければ shift17 から洗い場系を探す
     const dishId = ds?.dishwasher17
       ?? shift17Ids.find(id => { const s = staffById.get(id); return !!s && isDishwasher(s.position); });
-    // ホール: キッチン・洗い場以外の shift17 メンバー
+    // 夜①ホール: キッチン・洗い場以外の shift17 メンバー
     const floorNames = shift17Ids
       .filter(id => id !== kitchenId && id !== dishId)
       .map(id => staffById.get(id)?.name ?? '')
@@ -118,33 +123,42 @@ export function buildMonthlyPrintHTML(
     weekendNightRows += `<tr style="background:${bg}">
       <td style="border:1px solid #d1d5db;padding:3px 5px;font-weight:bold;color:${fg};text-align:center">${month}/${d}</td>
       <td style="border:1px solid #d1d5db;padding:3px 5px;text-align:center;color:${fg}">${DOW_LABELS[dow]}</td>
+      <td style="border:1px solid #d1d5db;padding:3px 8px;color:#374151">${nameOrDash(lFloor.join('・'))}</td>
+      <td style="border:1px solid #d1d5db;padding:3px 8px;color:#374151">${nameOrDash(lDish.join('・'))}</td>
       <td style="border:1px solid #d1d5db;padding:3px 8px;color:#374151">${nameOrDash(floorNames.join('・'))}</td>
       <td style="border:1px solid #d1d5db;padding:3px 8px;font-weight:${dishName ? 'bold' : 'normal'};color:${dishName ? '#374151' : '#9ca3af'}">${dishName || '—'}</td>
       <td style="border:1px solid #d1d5db;padding:3px 8px;font-weight:${kitchenName ? 'bold' : 'normal'};color:${kitchenName ? '#374151' : '#9ca3af'}">${kitchenName || '—'}</td>
     </tr>`;
   }
 
-  // 【平日】夜行：夜①ホール / 夜②ホール / 夜②洗い場
+  // 【平日】昼＋夜行：昼ホール / 昼洗い場 / 夜①ホール / 夜②ホール / 夜②洗い場 / 夜②キッチン
   let weekdayNightRows = '';
   for (const d of weekdayDays) {
     const dow = getDow(year, month, d);
     const dk = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const ds = daily[dk];
-    if (!ds || (ds.shift17.length === 0 && ds.shift18.length === 0)) continue;
+    if (!ds || (ds.lunch.length === 0 && ds.shift17.length === 0 && ds.shift18.length === 0)) continue;
 
-    const s17 = ds.shift17 ?? [];
-    const s18 = ds.shift18 ?? [];
+    const lunchIds = ds.lunch   ?? [];
+    const s17      = ds.shift17 ?? [];
+    const s18      = ds.shift18 ?? [];
 
-    const n17floor = s17.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isFloor(s.position)).map(s => s.name);
-    const n18floor = s18.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isFloor(s.position)).map(s => s.name);
-    const n18dish  = s18.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isDishwasher(s.position)).map(s => s.name);
+    const lFloor    = lunchIds.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isFloor(s.position)).map(s => s.name);
+    const lDish     = lunchIds.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isDishwasher(s.position)).map(s => s.name);
+    const n17floor  = s17.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isFloor(s.position)).map(s => s.name);
+    const n18floor  = s18.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isFloor(s.position)).map(s => s.name);
+    const n18dish   = s18.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isDishwasher(s.position)).map(s => s.name);
+    const n18kitchen = s18.map(id => staffById.get(id)).filter((s): s is Staff => !!s && isKitchen(s.position) && !isFloor(s.position)).map(s => s.name);
 
     weekdayNightRows += `<tr>
       <td style="border:1px solid #d1d5db;padding:3px 5px;font-weight:bold;text-align:center;color:#374151">${month}/${d}</td>
       <td style="border:1px solid #d1d5db;padding:3px 5px;text-align:center;color:#374151">${DOW_LABELS[dow]}</td>
+      <td style="border:1px solid #d1d5db;padding:3px 8px">${nameOrDash(lFloor.join('・'))}</td>
+      <td style="border:1px solid #d1d5db;padding:3px 8px">${nameOrDash(lDish.join('・'))}</td>
       <td style="border:1px solid #d1d5db;padding:3px 8px">${nameOrDash(n17floor.join('・'))}</td>
       <td style="border:1px solid #d1d5db;padding:3px 8px">${nameOrDash(n18floor.join('・'))}</td>
       <td style="border:1px solid #d1d5db;padding:3px 8px">${nameOrDash(n18dish.join('・'))}</td>
+      <td style="border:1px solid #d1d5db;padding:3px 8px">${nameOrDash(n18kitchen.join('・'))}</td>
     </tr>`;
   }
 
@@ -267,18 +281,20 @@ export function buildMonthlyPrintHTML(
     </table>
   </div>
 
-  <!-- 1ページ目続き：土日祝 夜①担当一覧 -->
+  <!-- 1ページ目続き：土日祝 昼＋夜①担当一覧 -->
   ${weekendDays.length > 0 ? `
   <div style="margin-top:10px">
-    <div class="section-title" style="color:#4338ca">土日祝　夜①（17:00〜）担当一覧　ホール×3・洗い場×1・キッチン×1</div>
+    <div class="section-title" style="color:#4338ca">土日祝　担当一覧（昼＋夜①）</div>
     <table style="border-collapse:collapse;font-size:9px;width:auto">
       <thead>
         <tr style="background:#e0e7ff">
           <th style="border:1px solid #9ca3af;padding:3px 5px;width:44px;text-align:center">日付</th>
           <th style="border:1px solid #9ca3af;padding:3px 5px;width:22px;text-align:center">曜</th>
-          <th style="border:1px solid #9ca3af;padding:3px 12px;text-align:left">🛎️ ホール（17:00〜）×3</th>
-          <th style="border:1px solid #9ca3af;padding:3px 12px;text-align:left">🫧 洗い場（17:00〜）</th>
-          <th style="border:1px solid #9ca3af;padding:3px 12px;text-align:left">🍳 キッチン（17:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🛎️ 昼ホール</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🫧 昼洗い場</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🛎️ 夜①ホール（17:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🫧 夜①洗い場（17:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🍳 夜①キッチン（17:00〜）</th>
         </tr>
       </thead>
       <tbody>${weekendNightRows}</tbody>
@@ -286,18 +302,21 @@ export function buildMonthlyPrintHTML(
   </div>
   ` : ''}
 
-  <!-- 1ページ目続き：平日 夜シフト担当一覧 -->
+  <!-- 1ページ目続き：平日 昼＋夜シフト担当一覧 -->
   ${weekdayNightRows ? `
   <div style="margin-top:10px">
-    <div class="section-title" style="color:#374151">平日　夜シフト担当一覧</div>
+    <div class="section-title" style="color:#374151">平日　担当一覧（昼＋夜）</div>
     <table style="border-collapse:collapse;font-size:9px;width:auto">
       <thead>
         <tr style="background:#f3f4f6">
           <th style="border:1px solid #9ca3af;padding:3px 5px;width:44px;text-align:center">日付</th>
           <th style="border:1px solid #9ca3af;padding:3px 5px;width:22px;text-align:center">曜</th>
-          <th style="border:1px solid #9ca3af;padding:3px 12px;text-align:left">🛎️ 夜①ホール（17:00〜）</th>
-          <th style="border:1px solid #9ca3af;padding:3px 12px;text-align:left">🛎️ 夜②ホール（18:00〜）</th>
-          <th style="border:1px solid #9ca3af;padding:3px 12px;text-align:left">🫧 夜②洗い場（18:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🛎️ 昼ホール</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🫧 昼洗い場</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🛎️ 夜①ホール（17:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🛎️ 夜②ホール（18:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🫧 夜②洗い場（18:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 10px;text-align:left">🍳 夜②キッチン（18:00〜）</th>
         </tr>
       </thead>
       <tbody>${weekdayNightRows}</tbody>
