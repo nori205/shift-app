@@ -106,9 +106,9 @@ export function autoGenerate(
     if (isWE) {
       // 土日祝: 全員17時から キッチン1 + 洗い場1 + ホール3 = 5人（全員shift17）
 
-      // キッチン1人
+      // キッチン1人（kitchen_floor系も含む）
       const kitchenNight = nightPool.filter(s =>
-        isKitchen(s.position) && !isFloor(s.position) && canDoShift17(avail(s.id))
+        isKitchen(s.position) && canDoShift17(avail(s.id))
       );
       if (kitchenNight.length > 0) {
         shift17Workers.push(kitchenNight[0].id);

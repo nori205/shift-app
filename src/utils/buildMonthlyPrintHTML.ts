@@ -1,4 +1,5 @@
 import type { Staff, MonthlyShifts, DailyShifts, StaffAvailability, HolidaySet } from '../types';
+import { isKitchen, isDishwasher } from './rules';
 
 const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 const WORK_VALUES = ['昼', '夜①', '夜②', '夜', '全'];
@@ -87,8 +88,26 @@ export function buildMonthlyPrintHTML(
     const dow = getDow(year, month, d);
     const dk = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const ds = daily[dk];
-    const kitchenName = ds?.kitchen17 ? (staff.find(s => s.id === ds.kitchen17)?.name ?? '') : '';
-    const dishName    = ds?.dishwasher17 ? (staff.find(s => s.id === ds.dishwasher17)?.name ?? '') : '';
+    const staffById = new Map(staff.map(s => [s.id, s]));
+    const shift17Ids = ds?.shift17 ?? [];
+
+    // kitchen17 が明示設定されていればそちら優先、なければ shift17 からキッチン系を探す
+    let kitchenName = '';
+    if (ds?.kitchen17) {
+      kitchenName = staffById.get(ds.kitchen17)?.name ?? '';
+    } else {
+      const k = shift17Ids.map(id => staffById.get(id)).find(s => s && isKitchen(s.position));
+      kitchenName = k?.name ?? '';
+    }
+
+    // dishwasher17 が明示設定されていればそちら優先、なければ shift17 から洗い場を探す
+    let dishName = '';
+    if (ds?.dishwasher17) {
+      dishName = staffById.get(ds.dishwasher17)?.name ?? '';
+    } else {
+      const dw = shift17Ids.map(id => staffById.get(id)).find(s => s && isDishwasher(s.position));
+      dishName = dw?.name ?? '';
+    }
     const bg = dow === 6 ? '#dbeafe' : '#fee2e2';
     const fg = dow === 6 ? '#1e40af' : '#991b1b';
     weekendRoleRows += `<tr style="background:${bg}">
