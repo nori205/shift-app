@@ -1,5 +1,5 @@
 import type { Staff, MonthlyShifts, DailyShifts, StaffAvailability, HolidaySet } from '../types';
-import { isKitchen, isDishwasher } from './rules';
+import { isKitchen, isDishwasher, isFloor, canWorkLunch, canWorkNight } from './rules';
 
 const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 const WORK_VALUES = ['昼', '夜①', '夜②', '夜', '全'];
@@ -40,6 +40,10 @@ function cellFg(val: string, isWE: boolean, dow: number): string {
   }
 }
 
+function nameOrDash(name: string): string {
+  return name || '<span style="color:#9ca3af">—</span>';
+}
+
 export function buildMonthlyPrintHTML(
   year: number, month: number,
   staff: Staff[], monthly: MonthlyShifts, daily: DailyShifts,
@@ -47,6 +51,7 @@ export function buildMonthlyPrintHTML(
 ): string {
   const days = daysInMonth(year, month);
   const dayArr = Array.from({ length: days }, (_, i) => i + 1);
+  const staffById = new Map(staff.map(s => [s.id, s]));
 
   // ── 1ページ目：日付ヘッダー ──
   let dayHeaders = '';
@@ -81,65 +86,102 @@ export function buildMonthlyPrintHTML(
     </tr>`;
   }
 
-  // ── 2ページ目：土日祝 夜①役割割当 ──
+  // ── 1ページ目続き：土日祝 夜①全員（ホール3・キッチン1・洗い場1） ──
   const weekendDays = dayArr.filter(d => isHolidayFn(year, month, d, holidays));
   let weekendRoleRows = '';
   for (const d of weekendDays) {
     const dow = getDow(year, month, d);
     const dk = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const ds = daily[dk];
-    const staffById = new Map(staff.map(s => [s.id, s]));
     const shift17Ids = ds?.shift17 ?? [];
 
-    // kitchen17 が明示設定されていればそちら優先、なければ shift17 からキッチン系を探す
-    let kitchenName = '';
-    if (ds?.kitchen17) {
-      kitchenName = staffById.get(ds.kitchen17)?.name ?? '';
-    } else {
-      const k = shift17Ids.map(id => staffById.get(id)).find(s => s && isKitchen(s.position));
-      kitchenName = k?.name ?? '';
-    }
+    // キッチン担当: kitchen17 優先 → なければ shift17 からキッチン系を探す
+    const kitchenId = ds?.kitchen17
+      ?? shift17Ids.find(id => { const s = staffById.get(id); return !!s && isKitchen(s.position); });
 
-    // dishwasher17 が明示設定されていればそちら優先、なければ shift17 から洗い場を探す
-    let dishName = '';
-    if (ds?.dishwasher17) {
-      dishName = staffById.get(ds.dishwasher17)?.name ?? '';
-    } else {
-      const dw = shift17Ids.map(id => staffById.get(id)).find(s => s && isDishwasher(s.position));
-      dishName = dw?.name ?? '';
-    }
+    // 洗い場担当: dishwasher17 優先 → なければ shift17 から洗い場系を探す
+    const dishId = ds?.dishwasher17
+      ?? shift17Ids.find(id => { const s = staffById.get(id); return !!s && isDishwasher(s.position); });
+
+    // ホール: キッチン・洗い場以外の shift17 メンバー
+    const floorNames = shift17Ids
+      .filter(id => id !== kitchenId && id !== dishId)
+      .map(id => staffById.get(id)?.name ?? '')
+      .filter(n => n);
+
+    const kitchenName = kitchenId ? (staffById.get(kitchenId)?.name ?? '') : '';
+    const dishName    = dishId    ? (staffById.get(dishId)?.name    ?? '') : '';
+
     const bg = dow === 6 ? '#dbeafe' : '#fee2e2';
     const fg = dow === 6 ? '#1e40af' : '#991b1b';
+
+    // ホールは最大3人を1セルにまとめて表示
+    const floorDisplay = floorNames.length > 0 ? floorNames.join('・') : '';
+
     weekendRoleRows += `<tr style="background:${bg}">
       <td style="border:1px solid #d1d5db;padding:3px 5px;font-weight:bold;color:${fg};text-align:center">${month}/${d}</td>
       <td style="border:1px solid #d1d5db;padding:3px 5px;text-align:center;color:${fg}">${DOW_LABELS[dow]}</td>
-      <td style="border:1px solid #d1d5db;padding:3px 10px;font-weight:${kitchenName ? 'bold' : 'normal'};color:${kitchenName ? '#374151' : '#9ca3af'}">${kitchenName || '—'}</td>
-      <td style="border:1px solid #d1d5db;padding:3px 10px;font-weight:${dishName ? 'bold' : 'normal'};color:${dishName ? '#374151' : '#9ca3af'}">${dishName || '—'}</td>
+      <td style="border:1px solid #d1d5db;padding:3px 8px;color:#374151">${nameOrDash(floorDisplay)}</td>
+      <td style="border:1px solid #d1d5db;padding:3px 8px;font-weight:${kitchenName ? 'bold' : 'normal'};color:${kitchenName ? '#374151' : '#9ca3af'}">${kitchenName || '—'}</td>
+      <td style="border:1px solid #d1d5db;padding:3px 8px;font-weight:${dishName ? 'bold' : 'normal'};color:${dishName ? '#374151' : '#9ca3af'}">${dishName || '—'}</td>
     </tr>`;
   }
 
-  // ── 2ページ目：出れない人リスト ──
-  let absenceRows = '';
+  // ── 2ページ目：補欠候補リスト ──
+  // アサインされていないが出勤可能なスタッフを役割別に列挙する
+  let substituteRows = '';
+
   for (const d of dayArr) {
     const dow = getDow(year, month, d);
     const isWE = isHolidayFn(year, month, d, holidays);
-    const cut: string[] = [];
-    const absent: string[] = [];
-    for (const s of staff) {
-      const shift = monthly[s.id]?.[d] ?? '';
-      const avail  = availability[s.id]?.[d] ?? '';
-      if (avail === '×') absent.push(s.name + '（×）');
-      else if (shift === '休') absent.push(s.name + '（休）');
-      else if (!WORK_VALUES.includes(shift)) cut.push(s.name);
-    }
+    const dk = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const ds = daily[dk];
+
+    // この日にアサイン済みのスタッフID一覧
+    const assigned = new Set([
+      ...(ds?.lunch    ?? []),
+      ...(ds?.shift17  ?? []),
+      ...(ds?.shift18  ?? []),
+    ]);
+
+    // 出勤可能だがアサインされていないスタッフ
+    const subs = staff.filter(s => {
+      if (assigned.has(s.id)) return false;
+      const av = availability[s.id]?.[d] ?? '';
+      if (av === '×') return false;
+      const allowed = s.availableDays;
+      if (allowed && allowed.length > 0 && !allowed.includes(dow)) return false;
+      return true;
+    });
+
+    if (subs.length === 0) continue;
+
+    // 役割別に分類
+    type RoleRow = { slot: string; role: string; names: string[] };
+    const roles: RoleRow[] = [
+      { slot: '昼',  role: '🛎️ ホール',   names: subs.filter(s => isFloor(s.position) && canWorkLunch(s.position)).map(s => s.name) },
+      { slot: '昼',  role: '🫧 洗い場', names: subs.filter(s => isDishwasher(s.position) && canWorkLunch(s.position)).map(s => s.name) },
+      { slot: '夜',  role: '🛎️ ホール',   names: subs.filter(s => isFloor(s.position) && canWorkNight(s.position)).map(s => s.name) },
+      { slot: '夜',  role: '🍳 キッチン', names: subs.filter(s => isKitchen(s.position) && canWorkNight(s.position)).map(s => s.name) },
+      { slot: '夜',  role: '🫧 洗い場', names: subs.filter(s => isDishwasher(s.position) && canWorkNight(s.position)).map(s => s.name) },
+    ].filter(r => r.names.length > 0);
+
+    if (roles.length === 0) continue;
+
     const bg = isWE ? (dow === 6 ? '#dbeafe' : '#fee2e2') : '#ffffff';
     const fg = isWE ? (dow === 6 ? '#1e40af' : '#991b1b') : '#374151';
-    absenceRows += `<tr style="background:${bg}">
-      <td style="border:1px solid #d1d5db;padding:3px 4px;font-weight:bold;color:${fg};text-align:center">${month}/${d}</td>
-      <td style="border:1px solid #d1d5db;padding:3px 4px;text-align:center;color:${fg}">${DOW_LABELS[dow]}</td>
-      <td style="border:1px solid #d1d5db;padding:3px 6px;color:#374151">${cut.length > 0 ? cut.join('、') : '<span style="color:#d1d5db">—</span>'}</td>
-      <td style="border:1px solid #d1d5db;padding:3px 6px;${absent.length > 0 ? 'font-weight:bold;color:#991b1b' : 'color:#d1d5db'}">${absent.length > 0 ? absent.join('、') : '—'}</td>
-    </tr>`;
+
+    roles.forEach((row, i) => {
+      substituteRows += `<tr style="background:${bg}">
+        ${i === 0
+          ? `<td rowspan="${roles.length}" style="border:1px solid #d1d5db;padding:3px 4px;font-weight:bold;color:${fg};text-align:center;vertical-align:middle">${month}/${d}</td>
+             <td rowspan="${roles.length}" style="border:1px solid #d1d5db;padding:3px 4px;text-align:center;color:${fg};vertical-align:middle">${DOW_LABELS[dow]}</td>`
+          : ''}
+        <td style="border:1px solid #d1d5db;padding:3px 6px;text-align:center;font-size:8px;white-space:nowrap">${row.slot}</td>
+        <td style="border:1px solid #d1d5db;padding:3px 6px;white-space:nowrap;font-size:8px">${row.role}</td>
+        <td style="border:1px solid #d1d5db;padding:3px 8px;color:#374151;font-weight:bold">${row.names.join('・')}</td>
+      </tr>`;
+    });
   }
 
   return `<!DOCTYPE html>
@@ -184,17 +226,18 @@ export function buildMonthlyPrintHTML(
     </table>
   </div>
 
-  <!-- 1ページ目続き：土日祝 夜①キッチン・洗い場担当 -->
+  <!-- 1ページ目続き：土日祝 夜①全員担当（ホール3・キッチン1・洗い場1） -->
   ${weekendDays.length > 0 ? `
   <div style="margin-top:10px">
-    <div class="section-title" style="color:#4338ca">土日祝　夜①（17:00〜）キッチン・洗い場担当</div>
-    <table style="border-collapse:collapse;font-size:9px;width:100%">
+    <div class="section-title" style="color:#4338ca">土日祝　夜①（17:00〜）担当一覧　ホール×3・キッチン×1・洗い場×1</div>
+    <table style="border-collapse:collapse;font-size:9px;width:auto">
       <thead>
         <tr style="background:#e0e7ff">
           <th style="border:1px solid #9ca3af;padding:3px 5px;width:44px;text-align:center">日付</th>
           <th style="border:1px solid #9ca3af;padding:3px 5px;width:22px;text-align:center">曜</th>
-          <th style="border:1px solid #9ca3af;padding:3px 12px;width:45%;text-align:left">🍳 キッチン①（17:00〜）</th>
-          <th style="border:1px solid #9ca3af;padding:3px 12px;width:45%;text-align:left">🫧 洗い場①（17:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 12px;text-align:left">🛎️ ホール（17:00〜）×3</th>
+          <th style="border:1px solid #9ca3af;padding:3px 12px;text-align:left">🍳 キッチン（17:00〜）</th>
+          <th style="border:1px solid #9ca3af;padding:3px 12px;text-align:left">🫧 洗い場（17:00〜）</th>
         </tr>
       </thead>
       <tbody>${weekendRoleRows}</tbody>
@@ -202,22 +245,26 @@ export function buildMonthlyPrintHTML(
   </div>
   ` : ''}
 
-  <!-- 2ページ目：出れない人リスト -->
+  <!-- 2ページ目：補欠候補リスト -->
   <div class="page-break-line">― ここから 2ページ目（印刷時は改ページ）―</div>
   <div class="page2">
-    <div style="font-weight:bold;font-size:14px;margin-bottom:4px">${year}年${month}月　出れない人リスト</div>
-    <div style="font-size:8px;color:#6b7280;margin-bottom:8px">削=未割当　×=出勤不可　休=休日申請　★欄=欠勤時の呼び出し対象</div>
-    <table style="border-collapse:collapse;font-size:9px;width:100%;table-layout:fixed">
-      <thead>
-        <tr style="background:#e5e7eb">
-          <th style="border:1px solid #9ca3af;padding:3px 4px;width:44px;text-align:center">日付</th>
-          <th style="border:1px solid #9ca3af;padding:3px 4px;width:22px;text-align:center">曜</th>
-          <th style="border:1px solid #9ca3af;padding:3px 6px;width:42%;text-align:left">削られた人（未割当）</th>
-          <th style="border:1px solid #9ca3af;padding:3px 6px;width:42%;text-align:left">★欠勤者（×/休）呼び出し対象</th>
-        </tr>
-      </thead>
-      <tbody>${absenceRows}</tbody>
-    </table>
+    <div style="font-weight:bold;font-size:14px;margin-bottom:4px">${year}年${month}月　補欠候補リスト</div>
+    <div style="font-size:8px;color:#6b7280;margin-bottom:8px">出勤可能だが当日未割当のスタッフ。欠勤発生時の呼び出し候補として活用してください。</div>
+    ${substituteRows
+      ? `<table style="border-collapse:collapse;font-size:9px;width:100%;table-layout:fixed">
+          <thead>
+            <tr style="background:#e5e7eb">
+              <th style="border:1px solid #9ca3af;padding:3px 4px;width:44px;text-align:center">日付</th>
+              <th style="border:1px solid #9ca3af;padding:3px 4px;width:22px;text-align:center">曜</th>
+              <th style="border:1px solid #9ca3af;padding:3px 6px;width:36px;text-align:center">時間帯</th>
+              <th style="border:1px solid #9ca3af;padding:3px 6px;width:72px;text-align:left">役割</th>
+              <th style="border:1px solid #9ca3af;padding:3px 6px;text-align:left">★ 補欠候補（欠勤時の呼び出し対象）</th>
+            </tr>
+          </thead>
+          <tbody>${substituteRows}</tbody>
+        </table>`
+      : '<p style="color:#9ca3af;font-size:10px">補欠候補となるスタッフはいません。</p>'
+    }
   </div>
 </body>
 </html>`;
